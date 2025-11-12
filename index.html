@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trình Phát Video (Material Symbols)</title>
+    <title>Trình Phát Video</title>
     <!-- Tải Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
@@ -612,6 +612,14 @@
             console.log('[File Handler] API not supported or PWA not installed.');
         }
 
+        // --- SERVICE WORKER REGISTRATION (Đăng ký Sư Phụ) ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(reg => console.log('Service Worker: Đăng ký thành công với scope:', reg.scope))
+                    .catch(err => console.error('Service Worker: Đăng ký thất bại:', err));
+            });
+        }
     </script>
 </body>
 </html>
