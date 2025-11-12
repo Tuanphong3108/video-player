@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trình Phát Video (Material Symbols)</title>
+    <!-- Tải Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Tải Material Symbols (Outline, Fill, Weight) -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    
+    <!-- === PWA MANIFEST & FILE HANDLING === -->
+    <!-- Manifest được liên kết đến file manifest.json riêng biệt, cần thiết cho GitHub Pages và PWA chính thức. -->
+    <link rel="manifest" href="manifest.json">
+    
+    <style>
+        /* Thiết lập font Inter cho toàn bộ ứng dụng */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Tối ưu thanh cuộn */
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 8px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background-color: #4a5568;
+            border-radius: 4px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: #2d3748;
+        }
+        /* Styling cho thanh Range Slider (Tiến trình) */
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            background: #3b82f6; /* accent */
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 2px rgba(0,0,0,0.5);
+        }
+        input[type=range]::-moz-range-thumb {
+            width: 12px;
+            height: 12px;
+            background: #3b82f6; /* accent */
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 2px rgba(0,0,0,0.5);
+            border: none;
+        }
+
+        /* Animation cho Drag & Drop Overlay */
+        #drag-overlay {
+            transition: opacity 0.3s ease-in-out;
+        }
+
+        /* --- MATERIAL SYMBOLS STYLING --- */
+        .material-symbols-outlined {
+            /* Set default state: Outline (FILL=0) */
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            transition: font-variation-settings 0.3s ease; /* Smooth transition for the effect */
+            line-height: 1; /* Fix vertical alignment */
+            display: inline-block;
+        }
+        
+        /* Apply FILL=1 (Filled) when the parent button group is hovered */
+        .group:hover .material-symbols-outlined,
+        /* Also apply FILL=1 when the button is focused (for keyboard navigation) */
+        .group:focus-visible .material-symbols-outlined {
+            font-variation-settings: 'FILL' 1, 'wght' 600, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+    <script>
+        // Cấu hình Tailwind CSS: Bật dark mode và màu sắc cơ bản
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        'background-dark': '#1f2937', // Grey 800
+                        'card-dark': '#374151',      // Grey 700
+                        'accent': '#3b82f6',         // Blue 500
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="p-4 bg-gray-800 shadow-lg flex justify-between items-center z-10">
+        <h1 class="text-2xl font-bold text-white">Trình Phát Video Tối Giản 🎥</h1>
+        <label for="fileInput" class="cursor-pointer bg-accent hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 transform hover:scale-105">
+            Chọn Video
+        </label>
+        <input type="file" id="fileInput" accept="video/*" class="hidden" onchange="handleFileSelect(event)">
+    </header>
+
+    <!-- Main Content Area - Video Player takes full width -->
+    <main class="flex-grow flex flex-col overflow-hidden">
+        
+        <!-- Video Player Area (Container) -->
+        <div id="video-container" class="w-full p-4 flex flex-col items-center justify-center bg-background-dark relative flex-grow">
+
+            <!-- Video Wrapper (Contains video and controls) -->
+            <div id="video-wrapper" class="w-full max-w-5xl h-full max-h-[85vh] rounded-xl shadow-2xl bg-black border border-gray-700 relative overflow-hidden hidden">
+                <!-- Loại bỏ 'controls' mặc định của trình duyệt -->
+                <video id="videoPlayer" class="w-full h-full object-contain"></video>
+                
+                <!-- Custom Controls Overlay (Ẩn đi khi không hoạt động) -->
+                <div id="controls-overlay" class="absolute inset-0 flex flex-col items-center justify-end transition-opacity duration-300 opacity-0 pointer-events-none p-4">
+                    <div id="customControls" class="w-full bg-gray-900/90 backdrop-blur-sm p-3 rounded-xl shadow-2xl border border-gray-700 flex flex-col pointer-events-auto">
+                        
+                        <!-- Seek Bar / Progress Bar -->
+                        <input type="range" id="progressBar" value="0" min="0" max="100" class="w-full h-1 appearance-none cursor-pointer bg-accent/50 rounded-full">
+
+                        <!-- Control Buttons Row -->
+                        <div class="flex items-center justify-between mt-2">
+                            
+                            <!-- Left Controls: Play/Skip/Time -->
+                            <div class="flex items-center space-x-3">
+                                
+                                <!-- Skip Backward 10s -->
+                                <button id="skipBackwardBtn" title="Tua lùi 10s" class="p-2 text-gray-300 hover:text-white rounded-full transition duration-150 transform hover:scale-110 group">
+                                    <span class="material-symbols-outlined text-2xl">replay_10</span>
+                                </button>
+                                
+                                <!-- Play/Pause Button -->
+                                <button id="playPauseBtn" title="Play/Pause" class="p-2 text-white bg-accent hover:bg-blue-600 rounded-full transition duration-150 transform hover:scale-110 group">
+                                    <span id="playPauseIcon" class="material-symbols-outlined text-3xl">play_arrow</span>
+                                </button>
+                                
+                                <!-- Skip Forward 10s -->
+                                <button id="skipForwardBtn" title="Tua tiến 10s" class="p-2 text-gray-300 hover:text-white rounded-full transition duration-150 transform hover:scale-110 group">
+                                    <span class="material-symbols-outlined text-2xl">forward_10</span>
+                                </button>
+
+                                <!-- Time Display -->
+                                <div id="timeDisplay" class="text-sm font-mono text-gray-300 hidden md:block">00:00 / 00:00</div>
+                            </div>
+
+                            <!-- Right Controls: Speed, Loop, PiP, Volume, Fullscreen -->
+                            <div class="flex items-center space-x-3">
+                                
+                                <!-- Speed Control -->
+                                <div class="relative group">
+                                    <button id="speedBtn" class="p-2 text-gray-300 hover:text-white rounded-lg text-sm font-semibold transition duration-150 bg-gray-800/50">
+                                        1.0x
+                                    </button>
+                                    <!-- Speed Menu -->
+                                    <div id="speedMenu" class="absolute bottom-full mb-2 right-0 bg-gray-900 border border-gray-700 rounded-lg shadow-xl overflow-hidden hidden w-20">
+                                    </div>
+                                </div>
+                                
+                                <!-- Loop Button -->
+                                <button id="loopBtn" title="Lặp lại" class="p-2 text-gray-500 hover:text-accent rounded-full transition duration-150 group">
+                                    <span class="material-symbols-outlined text-xl">repeat</span>
+                                </button>
+
+                                <!-- Picture-in-Picture Button (Chỉ hiện nếu trình duyệt hỗ trợ) -->
+                                <button id="pipBtn" title="Hình trong hình" class="p-2 text-gray-300 hover:text-white rounded-full transition duration-150 hidden group">
+                                    <span class="material-symbols-outlined text-xl">picture_in_picture_alt</span>
+                                </button>
+                                
+                                <!-- Volume Control (Hiện Slider khi hover) -->
+                                <div class="flex items-center space-x-2 group relative">
+                                    <!-- Volume Slider -->
+                                    <input type="range" id="volumeSlider" value="100" min="0" max="100" title="Âm lượng" class="w-20 h-1 appearance-none cursor-pointer bg-gray-700 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 hidden md:block">
+                                    <!-- Volume Button -->
+                                    <button id="volumeBtn" title="Tắt/Mở tiếng" class="p-2 text-gray-300 hover:text-white rounded-full transition duration-150 group">
+                                        <span id="volumeIcon" class="material-symbols-outlined text-xl">volume_up</span>
+                                    </button>
+                                </div>
+
+                                <!-- Fullscreen Button -->
+                                <button id="fullscreenBtn" title="Toàn màn hình" class="p-2 text-gray-300 hover:text-white rounded-full transition duration-150 group">
+                                    <span id="fullscreenIcon" class="material-symbols-outlined text-xl">fullscreen</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- End Custom Controls Overlay -->
+            </div>
+            <!-- End Video Wrapper -->
+            
+            <div id="placeholder" class="text-center text-gray-400 p-8 rounded-xl border-2 border-dashed border-gray-700 bg-gray-800 transition duration-300 flex flex-col items-center justify-center w-full max-w-lg h-64">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto mb-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                <p class="text-lg font-medium">Kéo & Thả Video Hoặc</p>
+                <p class="text-sm mt-1">Nhấn "Chọn Video" để bắt đầu.</p>
+                <p class="text-xs mt-3 text-yellow-400">🚨 Để Mở File Trực Tiếp: Cài đặt ứng dụng PWA này qua trình duyệt!</p>
+            </div>
+            
+            <div id="currentVideoInfo" class="mt-4 text-sm text-gray-400"></div>
+        </div>
+
+    </main>
+    
+    <!-- Drag & Drop Visual Overlay -->
+    <div id="drag-overlay" class="fixed inset-0 bg-accent/30 backdrop-blur-sm z-50 pointer-events-none opacity-0 flex items-center justify-center border-4 border-dashed border-accent rounded-xl m-4">
+        <p class="text-3xl font-bold text-white shadow-lg p-4 bg-accent/70 rounded-lg">THẢ VIDEO VÀO ĐÂY</p>
+    </div>
+
+    <script>
+        // Global variables
+        const videoPlayer = document.getElementById('videoPlayer');
+        const placeholder = document.getElementById('placeholder');
+        const currentVideoInfo = document.getElementById('currentVideoInfo');
+        const videoWrapper = document.getElementById('video-wrapper');
+        const controlsOverlay = document.getElementById('controls-overlay');
+        const dragOverlay = document.getElementById('drag-overlay');
+
+        // New Global variables for custom controls
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const playPauseIcon = document.getElementById('playPauseIcon'); // Material Symbol Span
+        const progressBar = document.getElementById('progressBar');
+        const timeDisplay = document.getElementById('timeDisplay');
+        const volumeBtn = document.getElementById('volumeBtn');
+        const volumeIcon = document.getElementById('volumeIcon'); // Material Symbol Span
+        const volumeSlider = document.getElementById('volumeSlider');
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+        const fullscreenIcon = document.getElementById('fullscreenIcon'); // Material Symbol Span
+        
+        // New Control elements
+        const skipBackwardBtn = document.getElementById('skipBackwardBtn');
+        const skipForwardBtn = document.getElementById('skipForwardBtn');
+        const speedBtn = document.getElementById('speedBtn');
+        const speedMenu = document.getElementById('speedMenu');
+        const loopBtn = document.getElementById('loopBtn');
+        const pipBtn = document.getElementById('pipBtn');
+
+        let currentFileURL = null; // Chỉ lưu trữ URL của video đang phát
+        let controlsTimeout;
+        const defaultPlaybackRate = 1.0;
+        
+        // --- UTILITY FUNCTIONS ---
+
+        /**
+         * Định dạng thời gian từ giây sang MM:SS.
+         */
+        function formatTime(seconds) {
+            if (isNaN(seconds) || seconds < 0) return '00:00';
+            const minutes = Math.floor(seconds / 60);
+            const remainderSeconds = Math.floor(seconds % 60);
+            const paddedMinutes = String(minutes).padStart(2, '0');
+            const paddedSeconds = String(remainderSeconds).padStart(2, '0');
+            return `${paddedMinutes}:${paddedSeconds}`;
+        }
+
+        /**
+         * Hiển thị Controls Overlay và thiết lập hẹn giờ ẩn.
+         */
+        function showControls() {
+            if (videoWrapper.classList.contains('hidden')) return;
+            
+            controlsOverlay.classList.remove('opacity-0');
+            clearTimeout(controlsTimeout);
+            
+            // Ẩn controls sau 3 giây nếu video đang phát
+            if (!videoPlayer.paused) {
+                controlsTimeout = setTimeout(() => {
+                    controlsOverlay.classList.add('opacity-0');
+                }, 3000);
+            }
+        }
+
+        /**
+         * Ẩn Controls Overlay.
+         */
+        function hideControls() {
+            clearTimeout(controlsTimeout);
+            controlsOverlay.classList.add('opacity-0');
+        }
+
+        // --- CORE APPLICATION LOGIC ---
+
+        /**
+         * Tải và bắt đầu phát video từ File object.
+         */
+        function loadVideoFromFile(file) {
+            // Thu hồi URL cũ để tránh rò rỉ bộ nhớ
+            if (currentFileURL) {
+                URL.revokeObjectURL(currentFileURL);
+            }
+
+            const objectURL = URL.createObjectURL(file);
+            currentFileURL = objectURL;
+            videoPlayer.src = currentFileURL;
+            videoPlayer.load();
+
+            // Reset tốc độ phát về mặc định
+            videoPlayer.playbackRate = defaultPlaybackRate;
+            speedBtn.textContent = `${defaultPlaybackRate.toFixed(1)}x`;
+
+            // Cập nhật giao diện: Ẩn placeholder, hiện video wrapper
+            placeholder.classList.add('hidden');
+            videoWrapper.classList.remove('hidden');
+            
+            // Hiện controls khi video được tải
+            showControls(); 
+
+            videoPlayer.play().catch(e => {
+                console.warn("Lỗi tự động phát: " + e.message);
+                currentVideoInfo.textContent = `▶️ Đã tải: ${file.name}. Vui lòng nhấn nút Play.`;
+                showControls();
+            });
+            
+            currentVideoInfo.textContent = `Đang phát: ${file.name}`;
+            
+            // Cập nhật trạng thái PiP
+            if ('pictureInPictureEnabled' in document && document.pictureInPictureEnabled) {
+                pipBtn.classList.remove('hidden');
+            }
+        }
+        
+        // --- DRAG & DROP LOGIC ---
+
+        function handleFileDrop(e) {
+            e.preventDefault();
+            dragOverlay.classList.add('opacity-0');
+            
+            const files = e.dataTransfer.files;
+            
+            // Chỉ chấp nhận file video đầu tiên
+            const videoFile = Array.from(files).find(file => file.type.startsWith('video/'));
+
+            if (videoFile) {
+                loadVideoFromFile(videoFile);
+            } else {
+                currentVideoInfo.textContent = "❌ Lỗi: Vui lòng thả một file video hợp lệ.";
+            }
+        }
+        
+        // Visual feedback cho Drag & Drop
+        document.body.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dragOverlay.classList.remove('opacity-0');
+        });
+
+        document.body.addEventListener('dragleave', (e) => {
+            // Chỉ ẩn nếu không di chuột vào bất kỳ phần tử con nào khác
+            if (e.clientX === 0 && e.clientY === 0) {
+                 dragOverlay.classList.add('opacity-0');
+            }
+        });
+        
+        document.body.addEventListener('drop', handleFileDrop);
+
+        // Xử lý từ nút Chọn File
+        function handleFileSelect(event) {
+            const files = event.target.files;
+            if (files.length > 0) {
+                loadVideoFromFile(files[0]);
+            }
+        }
+
+        // --- CUSTOM CONTROLS LOGIC ---
+        
+        // 1. Skip Forward/Backward
+        function skip(seconds) {
+            if (!videoPlayer.src) return;
+            videoPlayer.currentTime += seconds;
+            showControls();
+        }
+        skipBackwardBtn.addEventListener('click', () => skip(-10));
+        skipForwardBtn.addEventListener('click', () => skip(10));
+        
+        // 2. Playback Speed
+        const speedRates = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
+
+        function setPlaybackSpeed(speed) {
+            videoPlayer.playbackRate = speed;
+            speedBtn.textContent = `${speed.toFixed(2).replace(/\.00$/, '.0')}x`;
+            speedMenu.classList.add('hidden');
+            // Cập nhật trạng thái menu: xóa active cũ, thêm active mới
+            Array.from(speedMenu.children).forEach(item => {
+                if (parseFloat(item.dataset.speed) === speed) {
+                    item.classList.add('bg-accent', 'text-white');
+                    item.classList.remove('hover:bg-gray-700', 'text-gray-300');
+                } else {
+                    item.classList.remove('bg-accent', 'text-white');
+                    item.classList.add('hover:bg-gray-700', 'text-gray-300');
+                }
+            });
+            showControls();
+        }
+
+        function setupSpeedMenu() {
+            speedRates.forEach(rate => {
+                const item = document.createElement('div');
+                item.className = 'p-2 text-sm text-gray-300 cursor-pointer transition duration-100 text-center';
+                item.textContent = `${rate.toFixed(2).replace(/\.00$/, '.0')}x`;
+                item.dataset.speed = rate;
+                item.onclick = () => setPlaybackSpeed(rate);
+
+                // Khởi tạo trạng thái active cho 1.0x
+                if (rate === 1.0) {
+                    item.classList.add('bg-accent', 'text-white');
+                } else {
+                    item.classList.add('hover:bg-gray-700');
+                }
+                speedMenu.appendChild(item);
+            });
+            
+            speedBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); // Ngăn click lan ra ngoài
+                speedMenu.classList.toggle('hidden');
+                showControls();
+            });
+
+            // Ẩn menu khi click ra ngoài
+            document.addEventListener('click', (e) => {
+                if (!speedBtn.contains(e.target) && !speedMenu.contains(e.target)) {
+                    speedMenu.classList.add('hidden');
+                }
+            });
+        }
+        
+        // 3. Loop Toggle
+        function toggleLoop() {
+            videoPlayer.loop = !videoPlayer.loop;
+            const loopIcon = loopBtn.querySelector('.material-symbols-outlined');
+            
+            if (videoPlayer.loop) {
+                loopBtn.classList.add('text-accent', 'ring-2', 'ring-accent');
+                loopBtn.classList.remove('text-gray-500');
+                loopIcon.style.fontVariationSettings = "'FILL' 1, 'wght' 600, 'GRAD' 0, 'opsz' 24"; // Force Fill
+                currentVideoInfo.textContent = `🔁 Bật chế độ Lặp lại.`;
+            } else {
+                loopBtn.classList.remove('text-accent', 'ring-2', 'ring-accent');
+                loopBtn.classList.add('text-gray-500');
+                loopIcon.style.fontVariationSettings = "initial"; // Reset to default (Outline)
+                currentVideoInfo.textContent = `🔂 Tắt chế độ Lặp lại.`;
+            }
+            showControls();
+        }
+        loopBtn.addEventListener('click', toggleLoop);
+        
+        // 4. Picture-in-Picture (PiP)
+        pipBtn.addEventListener('click', () => {
+             if (!videoPlayer.src) return;
+             togglePiP();
+        });
+        
+        function togglePiP() {
+            if (!document.pictureInPictureElement) {
+                videoPlayer.requestPictureInPicture().catch(err => {
+                    console.error("Lỗi PiP: ", err);
+                    currentVideoInfo.textContent = "🚫 Lỗi: Trình duyệt không cho phép PiP hoặc đang bị chặn.";
+                });
+            } else {
+                document.exitPictureInPicture().catch(err => {
+                    console.error("Lỗi thoát PiP: ", err);
+                });
+            }
+            showControls();
+        }
+        
+        // 5. Fullscreen
+        fullscreenBtn.addEventListener('click', () => {
+            if (!videoPlayer.src) return;
+            if (document.fullscreenElement) {
+                document.exitFullscreen();
+            } else {
+                videoWrapper.requestFullscreen().catch(err => {
+                    console.error(`Lỗi Fullscreen: ${err.message} (${err.name})`);
+                    currentVideoInfo.textContent = `🚫 Lỗi: Trình duyệt chặn chế độ toàn màn hình.`;
+                });
+            }
+        });
+        
+        // --- EVENT LISTENERS (UPDATE MATERIAL SYMBOLS) ---
+
+        // Controls visibility
+        videoWrapper.addEventListener('mousemove', showControls);
+        videoWrapper.addEventListener('mouseenter', showControls);
+        videoWrapper.addEventListener('mouseleave', () => {
+            if (!videoPlayer.paused) {
+                hideControls();
+            }
+        });
+        
+        // Play/Pause Toggle
+        function togglePlayPause() {
+            if (!videoPlayer.src) return;
+            if (videoPlayer.paused || videoPlayer.ended) {
+                videoPlayer.play().catch(e => console.error("Lỗi Play: ", e));
+            } else {
+                videoPlayer.pause();
+            }
+        }
+        playPauseBtn.addEventListener('click', togglePlayPause);
+        videoPlayer.addEventListener('click', (event) => {
+            if (event.target.closest('#customControls')) { return; }
+            togglePlayPause();
+        });
+
+        // Icon updates
+        videoPlayer.addEventListener('play', () => {
+            playPauseIcon.textContent = 'pause'; // Pause icon
+            setTimeout(hideControls, 1000); 
+        });
+        videoPlayer.addEventListener('pause', () => {
+            playPauseIcon.textContent = 'play_arrow'; // Play icon
+            showControls();
+        });
+        
+        // Fullscreen Icon update
+        document.addEventListener('fullscreenchange', () => {
+            if (document.fullscreenElement) {
+                fullscreenIcon.textContent = 'fullscreen_exit';
+            } else {
+                fullscreenIcon.textContent = 'fullscreen';
+            }
+        });
+        
+        // Time and Progress Bar Update (Giữ nguyên)
+        videoPlayer.addEventListener('loadedmetadata', () => {
+            progressBar.max = videoPlayer.duration;
+            timeDisplay.textContent = `${formatTime(0)} / ${formatTime(videoPlayer.duration)}`;
+            volumeSlider.value = videoPlayer.volume * 100;
+            updateVolumeIcon(videoPlayer.volume, videoPlayer.muted);
+        });
+
+        videoPlayer.addEventListener('timeupdate', () => {
+            if (document.activeElement !== progressBar) {
+                progressBar.value = videoPlayer.currentTime;
+            }
+            timeDisplay.textContent = `${formatTime(videoPlayer.currentTime)} / ${formatTime(videoPlayer.duration)}`;
+        });
+
+        progressBar.addEventListener('input', () => {
+            if (!isNaN(videoPlayer.duration) && videoPlayer.duration > 0) {
+                videoPlayer.currentTime = progressBar.value;
+            }
+            showControls(); 
+        });
+        
+        // Volume Control (UPDATE Material Symbols Logic)
+        function updateVolumeIcon(volume, isMuted) {
+            let iconName = 'volume_up';
+            if (isMuted || volume === 0) {
+                iconName = 'volume_off';
+            } else if (volume > 0.5) {
+                iconName = 'volume_up';
+            } else {
+                iconName = 'volume_down';
+            }
+            volumeIcon.textContent = iconName;
+        }
+
+        volumeSlider.addEventListener('input', () => {
+            const volume = volumeSlider.value / 100;
+            videoPlayer.volume = volume;
+            videoPlayer.muted = false;
+            updateVolumeIcon(volume, videoPlayer.muted);
+        });
+
+        volumeBtn.addEventListener('click', () => {
+            videoPlayer.muted = !videoPlayer.muted;
+            updateVolumeIcon(videoPlayer.volume, videoPlayer.muted);
+            if (!videoPlayer.muted && videoPlayer.volume === 0) {
+                videoPlayer.volume = 0.5;
+                volumeSlider.value = 50;
+                updateVolumeIcon(videoPlayer.volume, videoPlayer.muted);
+            }
+        });
+        
+        // Khởi tạo menu tốc độ
+        setupSpeedMenu();
+
+        // Đảm bảo rằng URL object bị thu hồi khi trang bị đóng
+        window.addEventListener('beforeunload', () => {
+            if (currentFileURL) {
+                URL.revokeObjectURL(currentFileURL);
+            }
+        });
+        
+        // --- PWA FILE HANDLING LOGIC ---
+        // Xử lý file được truyền vào khi ứng dụng được mở bằng cách nhấn đúp vào file video.
+        if ('launchQueue' in window) {
+            console.log('[File Handler] API supported. Setting consumer...');
+            window.launchQueue.setConsumer(async (launchParams) => {
+                // Kiểm tra xem có file nào được truyền vào không
+                if (launchParams.files && launchParams.files.length > 0) {
+                    console.log('[File Handler] File(s) received.');
+                    
+                    // Lấy handle của file đầu tiên
+                    const fileHandle = launchParams.files[0];
+                    
+                    try {
+                        // Lấy đối tượng File thực sự
+                        const file = await fileHandle.getFile();
+                        
+                        // Tải và phát video
+                        loadVideoFromFile(file);
+                        currentVideoInfo.textContent = `🎬 Đang mở file qua desktop: ${file.name}`;
+                    } catch (error) {
+                        console.error('Lỗi khi truy cập File Handle:', error);
+                        currentVideoInfo.textContent = '🚫 Lỗi khi cố gắng mở file.';
+                    }
+                } else {
+                    console.log('[File Handler] App launched without files.');
+                }
+            });
+        } else {
+            console.log('[File Handler] API not supported or PWA not installed.');
+        }
+
+    </script>
+</body>
+</html>
