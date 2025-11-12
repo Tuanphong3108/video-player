@@ -2,7 +2,7 @@
   "name": "Trình Phát Video",
   "short_name": "Video Player",
   "description": "Mở file video trực tiếp từ desktop.",
-  "start_url": "/",
+  "start_url": "/video-player/",
   "display": "standalone",
   "icons": [
     {
