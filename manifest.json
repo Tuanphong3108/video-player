@@ -1,0 +1,22 @@
+{
+  "name": "Trình Phát Video Siêu Tốc",
+  "short_name": "Video Player",
+  "description": "Mở file video trực tiếp từ desktop.",
+  "start_url": "/",
+  "display": "standalone",
+  "icons": [
+    {
+      "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iIzNiODJmNiIgZD0iTTggNXYxNGwxMS03eiIvPjwvc3ZnPg==",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    }
+  ],
+  "file_handlers": [
+    {
+      "action": "/",
+      "accept": {
+        "video/*": [".mp4", ".webm", ".ogv", ".ogg", ".mov", ".mkv"]
+      }
+    }
+  ]
+}
