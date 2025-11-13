@@ -20,11 +20,16 @@
     }
   ],
   "file_handlers": [
-    {
-      "action": "/",
-      "accept": {
-        "video/*": [".mp4", ".webm", ".ogv", ".ogg", ".mov", ".mkv"]
-      }
+  {
+    "action": "/open-file",
+    "accept": {
+      "video/*": [
+        ".mp4",
+        ".webm",
+        ".mkv",
+        ".mov",
+        ".avi"
+      ]
     }
-  ]
-}
+  }
+]
