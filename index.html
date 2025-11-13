@@ -657,6 +657,25 @@
                     .catch(err => console.error('Service Worker: Đăng ký thất bại:', err));
             });
         }
-    </script>
+  <script>
+    // Redirect /open-file về /
+    if (location.pathname === '/open-file') {
+      console.log('[PWA] Redirecting /open-file to / ...');
+      history.replaceState({}, '', '/');
+    }
+
+    // Xử lý file mở qua menu \"Open with...\"
+    if ('launchQueue' in window) {
+      console.log('[File Handler] API supported. Setting consumer...');
+      window.launchQueue.setConsumer(async (launchParams) => {
+        if (!launchParams.files || launchParams.files.length === 0) return;
+        for (const fileHandle of launchParams.files) {
+          const file = await fileHandle.getFile();
+          console.log('[File Handler] File received:', file.name);
+          if (typeof loadVideoFromFile === 'function') loadVideoFromFile(file);
+        }
+      });
+    }
+  </script>
 </body>
 </html>
