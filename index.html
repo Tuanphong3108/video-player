@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trình Phát Video</title>
+    <title>Video Player</title>
     <!-- Tải Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
@@ -12,6 +12,8 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     
     <!-- === PWA MANIFEST & FILE HANDLING === -->
+    <!-- Đồng bộ màu theme với manifest (#1c1b1f) -->
+    <meta name="theme-color" content="#1c1b1f"> 
     <!-- Manifest được liên kết đến file manifest.json riêng biệt, cần thiết cho GitHub Pages và PWA chính thức. -->
     <link rel="manifest" href="manifest.json">
     
@@ -56,6 +58,27 @@
             transition: opacity 0.3s ease-in-out;
         }
 
+        /* --- FIX ASPECT RATIO CSS (Dùng Padding-Bottom Hack) --- */
+        .aspect-ratio-box {
+            position: relative;
+            width: 100%;
+            /* Chiều cao được định nghĩa bởi padding-bottom (tỉ lệ), gán từ JS */
+            padding-bottom: var(--video-ratio, 56.25%); /* Fallback 16:9 (9/16 * 100) */
+            height: 0; /* Đảm bảo padding-bottom xác định chiều cao */
+            max-height: 85vh; /* Giữ giới hạn chiều cao tổng thể trên màn hình */
+        }
+        /* Video và Controls Overlay nằm tuyệt đối bên trong container giữ tỉ lệ */
+        .aspect-ratio-box video,
+        .aspect-ratio-box #controls-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            /* Đảm bảo video fill chiều ngang của box tỉ lệ và fit hoàn hảo bên trong */
+            object-fit: contain; 
+        }
+
         /* --- MATERIAL SYMBOLS STYLING --- */
         .material-symbols-outlined {
             /* Set default state: Outline (FILL=0) */
@@ -92,7 +115,7 @@
 
     <!-- Header -->
     <header class="p-4 bg-gray-800 shadow-lg flex justify-between items-center z-10">
-        <h1 class="text-2xl font-bold text-white">Trình Phát Video Tối Giản 🎥</h1>
+        <h1 class="text-2xl font-bold text-white">Video Player 🎥</h1>
         <label for="fileInput" class="cursor-pointer bg-accent hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 transform hover:scale-105">
             Chọn Video
         </label>
@@ -105,13 +128,13 @@
         <!-- Video Player Area (Container) -->
         <div id="video-container" class="w-full p-4 flex flex-col items-center justify-center bg-background-dark relative flex-grow">
 
-            <!-- Video Wrapper (Contains video and controls) -->
-            <div id="video-wrapper" class="w-full max-w-5xl h-full max-h-[85vh] rounded-xl shadow-2xl bg-black border border-gray-700 relative overflow-hidden hidden">
+            <!-- Video Wrapper (CẬP NHẬT: Loại bỏ height cố định, dựa vào tỉ lệ video) -->
+            <div id="video-wrapper" class="w-full max-w-5xl rounded-xl shadow-2xl bg-black border border-gray-700 relative overflow-hidden hidden">
                 <!-- Loại bỏ 'controls' mặc định của trình duyệt -->
-                <video id="videoPlayer" class="w-full h-full object-contain"></video>
+                <video id="videoPlayer"></video>
                 
                 <!-- Custom Controls Overlay (Ẩn đi khi không hoạt động) -->
-                <div id="controls-overlay" class="absolute inset-0 flex flex-col items-center justify-end transition-opacity duration-300 opacity-0 pointer-events-none p-4">
+                <div id="controls-overlay" class="flex flex-col items-center justify-end transition-opacity duration-300 opacity-0 pointer-events-none p-4">
                     <div id="customControls" class="w-full bg-gray-900/90 backdrop-blur-sm p-3 rounded-xl shadow-2xl border border-gray-700 flex flex-col pointer-events-auto">
                         
                         <!-- Seek Bar / Progress Bar -->
@@ -300,6 +323,9 @@
             // Cập nhật giao diện: Ẩn placeholder, hiện video wrapper
             placeholder.classList.add('hidden');
             videoWrapper.classList.remove('hidden');
+            
+            // Thêm class Aspect Ratio Box để container tự động chỉnh tỉ lệ
+            videoWrapper.classList.add('aspect-ratio-box');
             
             // Hiện controls khi video được tải
             showControls(); 
@@ -496,6 +522,7 @@
         }
         playPauseBtn.addEventListener('click', togglePlayPause);
         videoPlayer.addEventListener('click', (event) => {
+            // Ngăn toggle play/pause khi click vào controls
             if (event.target.closest('#customControls')) { return; }
             togglePlayPause();
         });
@@ -521,6 +548,16 @@
         
         // Time and Progress Bar Update (Giữ nguyên)
         videoPlayer.addEventListener('loadedmetadata', () => {
+            // --- ASPECT RATIO FIX LOGIC START ---
+            // Tính toán tỉ lệ chiều cao/chiều rộng (height / width)
+            const ratio = videoPlayer.videoHeight / videoPlayer.videoWidth;
+            // Tính padding-bottom percentage (Ratio * 100)
+            const paddingBottom = ratio * 100; 
+            // Áp dụng vào CSS Variable để container tự điều chỉnh kích thước
+            videoWrapper.style.setProperty('--video-ratio', `${paddingBottom}%`);
+            console.log(`Video Aspect Ratio: ${videoPlayer.videoWidth}x${videoPlayer.videoHeight}. CSS Ratio: ${paddingBottom.toFixed(2)}%`);
+            // --- ASPECT RATIO FIX LOGIC END ---
+
             progressBar.max = videoPlayer.duration;
             timeDisplay.textContent = `${formatTime(0)} / ${formatTime(videoPlayer.duration)}`;
             volumeSlider.value = videoPlayer.volume * 100;
