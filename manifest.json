@@ -20,16 +20,17 @@
     }
   ],
   "file_handlers": [
-  {
-    "action": "/open-file",
-    "accept": {
-      "video/*": [
-        ".mp4",
-        ".webm",
-        ".mkv",
-        ".mov",
-        ".avi"
-      ]
+    {
+      "action": "/open-file",
+      "accept": {
+        "video/*": [
+          ".mp4",
+          ".webm",
+          ".mkv",
+          ".mov",
+          ".avi"
+        ]
+      }
     }
-  }
-]
+  ]
+}
