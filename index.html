@@ -170,8 +170,8 @@
             <!-- Group: File Actions (Share, Info, Delete) - Chỉ hiện khi có file local -->
             <div id="fileActionsGroup" class="flex items-center space-x-2 bg-gray-700 p-1 rounded-lg shadow-inner hidden">
                 
-                <!-- Info Button -->
-                <button id="infoBtn" title="Thông tin chi tiết" class="group p-2 text-gray-300 hover:text-white rounded-lg transition duration-150 transform hover:scale-105" onclick="showFileInfoModal()">
+                <!-- Info Button (Dùng cho local file) -->
+                <button id="infoBtn" title="Thông tin chi tiết tệp" class="group p-2 text-gray-300 hover:text-white rounded-lg transition duration-150 transform hover:scale-105" onclick="showFileInfoModal()">
                     <span class="material-symbols-outlined text-xl">info</span>
                 </button>
                 
@@ -206,7 +206,7 @@
             <div class="flex items-center space-x-3 max-w-7xl mx-auto">
                 <span class="material-symbols-outlined text-2xl flex-shrink-0">security</span>
                 <p class="text-sm font-medium">
-                    <strong>CẢNH BÁO:</strong> Phát link YouTube có thể bị chặn (Lỗi 153) trong môi trường <strong>Canvas/Iframe</strong> do chính sách bảo mật quá nghiêm ngặt. Vui lòng thử lại trên trình duyệt <strong>ngoài môi trường này</strong> nếu video không load.
+                    <b>CẢNH BÁO:</b> Phát link YouTube có thể bị chặn (Lỗi 153) trong môi trường <b>Canvas/Iframe</b> do chính sách bảo mật quá nghiêm ngặt. Vui lòng thử lại trên trình duyệt <b>ngoài môi trường này</b> nếu video không load.
                 </p>
             </div>
         </div>
@@ -216,6 +216,8 @@
 
             <!-- Video Wrapper (Khung chứa video, dùng để giữ tỉ lệ và áp dụng giới hạn chiều rộng) -->
             <div id="video-wrapper" class="w-full rounded-xl shadow-2xl bg-black border border-gray-700 relative overflow-hidden hidden aspect-ratio-box">
+                
+                <!-- KHÔNG CÓ NÚT INFO NỔI CHO EMBED NỮA -->
                 
                 <!-- Video Player (Chỉ dùng cho local file) -->
                 <video id="videoPlayer"></video>
@@ -272,8 +274,8 @@
                                     <span class="material-symbols-outlined text-xl">repeat</span>
                                 </button>
 
-                                <!-- Picture-in-Picture Button (Chỉ hiện nếu trình duyệt hỗ trợ) -->
-                                <button id="pipBtn" title="Hình trong hình (PiP)" class="p-2 text-gray-300 hover:text-white rounded-full transition duration-150 hidden group">
+                                <!-- Picture-in-Picture Button (PiP đã được đưa về đây) -->
+                                <button id="pipBtn" title="Hình trong hình (PiP)" class="p-2 text-gray-300 hover:text-white rounded-full transition duration-150 group">
                                     <span class="material-symbols-outlined text-xl">picture_in_picture_alt</span>
                                 </button>
                                 
@@ -352,12 +354,12 @@
         </div>
         <!-- END MODAL 1: File Source Modal -->
 
-        <!-- MODAL 2: Thông tin File -->
+        <!-- MODAL 2: Thông tin File (CHỈ DÙNG CHO LOCAL FILE) -->
         <div id="fileInfoModal" class="fixed inset-0 bg-gray-900/80 backdrop-blur-sm z-40 flex items-center justify-center hidden">
             <div class="bg-gray-800 p-6 rounded-xl shadow-2xl w-full max-w-md border border-gray-700">
                 <h2 class="text-xl font-bold mb-4 text-white flex items-center space-x-2">
                     <span class="material-symbols-outlined">description</span>
-                    <span>Thông tin Tệp</span>
+                    <span>Thông tin Tệp Cục Bộ</span>
                 </h2>
                 <div class="space-y-2 text-gray-300" id="fileInfoContent">
                     <!-- Nội dung thông tin chi tiết sẽ được chèn vào đây bởi JS -->
@@ -367,7 +369,7 @@
         </div>
         <!-- END MODAL 2: File Info Modal -->
         
-        <!-- MODAL 3: Cảnh báo Quyền Truy Cập (Yêu cầu của Phong) -->
+        <!-- MODAL 3: Cảnh báo Quyền Truy Cập -->
         <div id="permissionRequiredModal" class="fixed inset-0 bg-gray-900/80 backdrop-blur-sm z-40 flex items-center justify-center hidden">
             <div class="bg-gray-800 p-6 rounded-xl shadow-2xl w-full max-w-md border border-gray-700">
                 <h2 class="text-xl font-bold mb-4 text-white flex items-center space-x-2">
@@ -401,11 +403,12 @@
         const fileInputFallback = document.getElementById('fileInputFallback'); 
         const customTooltip = document.getElementById('customTooltip'); 
         const youtubeWarning = document.getElementById('youtubeWarning'); 
+        const pipBtn = document.getElementById('pipBtn'); // Lấy lại PiP button
         
         // Modal elements
         const fileSourceModal = document.getElementById('fileSourceModal');
         const fileInfoModal = document.getElementById('fileInfoModal');
-        const permissionRequiredModal = document.getElementById('permissionRequiredModal'); // NEW MODAL ELEMENT
+        const permissionRequiredModal = document.getElementById('permissionRequiredModal'); 
         const videoLinkInput = document.getElementById('videoLinkInput');
         const linkError = document.getElementById('linkError');
         const linkErrorText = document.getElementById('linkErrorText');
@@ -475,6 +478,7 @@
             if (isYouTubeEmbed || !currentFileName) {
                 fileActionsGroup.classList.add('hidden');
             } else {
+                // Chỉ hiện group cho Local File
                 fileActionsGroup.classList.remove('hidden');
                 
                 // Nút Share luôn hiện nếu là file local
@@ -719,7 +723,7 @@
             mediaIframe.className = 'media-iframe'; 
             
             videoWrapper.appendChild(mediaIframe);
-
+            
             currentVideoInfo.textContent = `▶️ Đang phát YouTube: https://youtu.be/${videoId} (Dùng controls gốc)`;
             updateFileActionsState(); // Sẽ ẩn nút share/info/delete
         }
@@ -758,26 +762,25 @@
         // --- FILE HANDLE ACTIONS (INFO, SHARE) ---
 
         /**
-         * Hiện Modal Thông tin File
+         * Hiện Modal Thông tin File (CHỈ DÙNG CHO LOCAL FILE)
          */
         function showFileInfoModal() {
-            if (!currentFileDetails) {
-                currentVideoInfo.textContent = "🚫 Lỗi: Không có thông tin tệp để hiển thị.";
-                return;
+            if (isYouTubeEmbed || !currentFileDetails) {
+                 currentVideoInfo.textContent = "🚫 Lỗi: Chỉ có thể hiển thị thông tin cho Tệp cục bộ.";
+                 return;
             }
-            
+
             const content = document.getElementById('fileInfoContent');
+            content.innerHTML = ''; // Clear previous content
+            
+            // Handle Local File Info
             const date = currentFileDetails.lastModified ? new Date(currentFileDetails.lastModified) : null;
             
-            // Cập nhật Quyền Truy Cập
-            let permissionStatus = 'Chỉ Đọc (Fallback)';
+            let permissionStatus = 'Chỉ Đọc (Fallback/Drag)';
             let permissionColor = 'text-yellow-400';
             if (currentFileHandle) {
                 permissionStatus = 'Đọc & Ghi (FSSA)';
                 permissionColor = 'text-green-400';
-            } else if (isYouTubeEmbed) {
-                permissionStatus = 'Nguồn ngoài (YouTube)';
-                permissionColor = 'text-gray-400';
             }
 
             const data = [
@@ -794,16 +797,17 @@
                     <span class="font-semibold ${item.color || (item.accent ? 'text-white' : 'text-gray-200')}">${item.value}</span>
                 </div>
             `).join('');
-
+            
             showModal('fileInfoModal');
         }
+
 
         /**
          * Hiện thông báo giới hạn API thay cho chức năng xóa file
          */
         function showApiLimitationMessage() {
             // Hiển thị thông báo đỏ
-            currentVideoInfo.innerHTML = `<span class="text-red-400 font-bold">⚠️ GIỚI HẠN API:</span> Chức năng xóa bị vô hiệu hóa. Web API (FSSA) hiện tại <span class="text-white">không hỗ trợ xóa tệp</span> chỉ với File Handle (chỉ cho phép xóa qua Directory Handle).`;
+            currentVideoInfo.innerHTML = `<span class="text-red-400 font-bold">⚠️ GIỚI HẠN API:</span> Chức năng xóa bị vô hiệu hóa. Web API (FSSA) hiện tại <b>không hỗ trợ xóa tệp</b> chỉ với File Handle (chỉ cho phép xóa qua Directory Handle).`;
             
             // Tự động reset tin nhắn sau 5 giây
             setTimeout(() => {
@@ -826,14 +830,12 @@
                 return;
             }
             
-            // === PHONG'S REQUEST: CHECK PERMISSION ===
             // Nếu không có File Handle, tức là file đang ở chế độ Chỉ Đọc (do Fallback hoặc Drag&Drop)
             if (!currentFileHandle) {
                 showModal('permissionRequiredModal');
                 currentVideoInfo.textContent = "⚠️ Chia sẻ bị chặn: Cần quyền Đọc & Ghi để chia sẻ tệp gốc.";
                 return;
             }
-            // === END PHONG'S REQUEST ===
 
             if (!navigator.share) {
                 currentVideoInfo.textContent = "🚫 Lỗi: Trình duyệt không hỗ trợ chia sẻ native (Web Share API).";
@@ -979,7 +981,8 @@
         }
         document.getElementById('loopBtn').addEventListener('click', toggleLoop);
         
-        document.getElementById('pipBtn').addEventListener('click', () => {
+        // PiP Logic (Đã được đưa về Custom Controls)
+        pipBtn.addEventListener('click', () => {
              if (isYouTubeEmbed) return;
              if (!videoPlayer.src) return;
              togglePiP();
@@ -1068,8 +1071,6 @@
 
         // --- TOOLTIP LOGIC MỚI ---
         function showTooltip(element) {
-            if (isYouTubeEmbed) return;
-            
             const title = element.title;
             if (!title) return; 
 
@@ -1151,7 +1152,7 @@
         videoPlayer.addEventListener('loadedmetadata', () => {
             if (isYouTubeEmbed) return; 
 
-            // === PHONG'S REQUEST: ASPECT RATIO THỰC CỦA VIDEO ===
+            // === ASPECT RATIO THỰC CỦA VIDEO ===
             videoWrapper.classList.add('aspect-ratio-box');
             
             const ratio = videoPlayer.videoHeight / videoPlayer.videoWidth;
@@ -1199,6 +1200,67 @@
         // Khởi tạo menu tốc độ và Tooltips
         setupSpeedMenu();
         setupTooltips();
+        
+        // Kiểm tra hỗ trợ PiP khi ứng dụng tải
+        function initApp() {
+            if (!document.pictureInPictureEnabled) {
+                pipBtn.classList.add('hidden');
+                pipBtn.title = "Trình duyệt không hỗ trợ PiP";
+            } else {
+                pipBtn.classList.remove('hidden');
+            }
+        }
+        
+        window.onload = function() {
+            initApp();
+            // Tiếp tục PWA launchQueue nếu có (logic ở dưới)
+            if ('launchQueue' in window) {
+                console.log('[File Handler] API supported. Setting consumer... (PWA)');
+                window.launchQueue.setConsumer(async (launchParams) => {
+                    if (launchParams.files && launchParams.files.length > 0) {
+                        console.log('[File Handler] File(s) received.');
+                        
+                        const fileHandle = launchParams.files[0];
+                        
+                        try {
+                            const permissionStatus = await fileHandle.queryPermission({ mode: 'readwrite' });
+                            if (permissionStatus !== 'granted') {
+                                 await fileHandle.requestPermission({ mode: 'readwrite' });
+                            }
+
+                            // CẬP NHẬT HANDLE KHI KHỞI ĐỘNG
+                            currentFileHandle = fileHandle; 
+                            const file = await fileHandle.getFile();
+                            
+                            resetMediaPlayer(false); // KHÔNG RESET HANDLE
+                            loadVideoFromFile(file);
+                            currentVideoInfo.textContent = `🎬 Đang mở file qua desktop: ${file.name}`;
+                        } catch (error) {
+                            console.error('Lỗi khi truy cập File Handle:', error);
+                            try {
+                                const file = await fileHandle.getFile();
+                                currentFileHandle = null; 
+                                resetMediaPlayer(false); // KHÔNG RESET HANDLE
+                                loadVideoFromFile(file);
+                                currentVideoInfo.textContent = `⚠️ Mở file thành công: ${file.name}`;
+                            } catch (readError) {
+                                console.error('Lỗi khi đọc file sau khi thất bại readwrite:', readError);
+                                currentFileHandle = null;
+                                currentVideoInfo.textContent = '🚫 Lỗi khi cố gắng mở file.';
+                            }
+                        }
+                        updateFileActionsState(); 
+                    } else {
+                        console.log('[File Handler] App launched without files.');
+                        currentFileHandle = null; 
+                        updateFileActionsState(); 
+                        currentVideoInfo.textContent = 'Ứng dụng đã khởi động. Kéo & Thả video để phát!';
+                    }
+                });
+            } else {
+                console.log('[File Handler] API not supported or PWA not installed.');
+            }
+        };
 
         // Đảm bảo rằng URL object bị thu hồi khi trang bị đóng
         window.addEventListener('beforeunload', () => {
@@ -1207,54 +1269,6 @@
             }
         });
         
-        // --- PWA LAUNCHQUEUE LOGIC ---
-        if ('launchQueue' in window) {
-            console.log('[File Handler] API supported. Setting consumer... (PWA)');
-            window.launchQueue.setConsumer(async (launchParams) => {
-                if (launchParams.files && launchParams.files.length > 0) {
-                    console.log('[File Handler] File(s) received.');
-                    
-                    const fileHandle = launchParams.files[0];
-                    
-                    try {
-                        const permissionStatus = await fileHandle.queryPermission({ mode: 'readwrite' });
-                        if (permissionStatus !== 'granted') {
-                             await fileHandle.requestPermission({ mode: 'readwrite' });
-                        }
-
-                        // CẬP NHẬT HANDLE KHI KHỞI ĐỘNG
-                        currentFileHandle = fileHandle; 
-                        const file = await fileHandle.getFile();
-                        
-                        resetMediaPlayer(false); // KHÔNG RESET HANDLE
-                        loadVideoFromFile(file);
-                        currentVideoInfo.textContent = `🎬 Đang mở file qua desktop: ${file.name}`;
-                    } catch (error) {
-                        console.error('Lỗi khi truy cập File Handle:', error);
-                        try {
-                            const file = await fileHandle.getFile();
-                            currentFileHandle = null; 
-                            resetMediaPlayer(false); // KHÔNG RESET HANDLE
-                            loadVideoFromFile(file);
-                            currentVideoInfo.textContent = `⚠️ Mở file thành công: ${file.name}`;
-                        } catch (readError) {
-                            console.error('Lỗi khi đọc file sau khi thất bại readwrite:', readError);
-                            currentFileHandle = null;
-                            currentVideoInfo.textContent = '🚫 Lỗi khi cố gắng mở file.';
-                        }
-                    }
-                    updateFileActionsState(); 
-                } else {
-                    console.log('[File Handler] App launched without files.');
-                    currentFileHandle = null; 
-                    updateFileActionsState(); 
-                    currentVideoInfo.textContent = 'Ứng dụng đã khởi động. Kéo & Thả video để phát!';
-                }
-            });
-        } else {
-            console.log('[File Handler] API not supported or PWA not installed.');
-        }
-
         // --- SERVICE WORKER REGISTRATION (Giữ nguyên) ---
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
