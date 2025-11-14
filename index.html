@@ -67,8 +67,9 @@
             max-height: calc(100vh - 180px); /* Khoảng 180px cho header, padding và margin */
             overflow: hidden; 
         }
-        /* Video và Controls Overlay nằm tuyệt đối bên trong container giữ tỉ lệ */
-        .aspect-ratio-box video {
+        /* Media content (video, iframe) nằm tuyệt đối bên trong container giữ tỉ lệ */
+        .aspect-ratio-box #videoPlayer, 
+        .aspect-ratio-box #youtubeEmbed {
             position: absolute;
             top: 0;
             left: 0;
@@ -83,13 +84,11 @@
             left: 0;
             width: 100%;
             height: 100%;
-            /* Đảm bảo nó không bị ảnh hưởng bởi object-fit: contain của video */
-            display: flex; /* Bắt buộc để căn chỉnh controls xuống dưới */
+            display: flex; 
             flex-direction: column;
             justify-content: flex-end;
             pointer-events: none;
         }
-
 
         /* --- MATERIAL SYMBOLS STYLING --- */
         /* Đây là CSS chung áp dụng hiệu ứng FILL khi có class 'group' */
@@ -163,9 +162,9 @@
             </button>
             
             <!-- Nút Chọn Video (Đã thêm class group để fix hover icon) -->
-            <button id="selectFileBtn" title="Chọn video bằng File System Access API" onclick="handleFilePicker()" class="group cursor-pointer bg-accent hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 transform hover:scale-105 flex items-center space-x-2">
+            <button id="selectFileBtn" title="Chọn video bằng File System Access API hoặc Link" onclick="handleFilePicker()" class="group cursor-pointer bg-accent hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 transform hover:scale-105 flex items-center space-x-2">
                 <span class="material-symbols-outlined text-xl">upload_file</span>
-                <span>Chọn Video</span>
+                <span>Chọn Nguồn</span>
             </button>
             
             <!-- Hidden input for old-school fallback and PWA file launching -->
@@ -180,12 +179,15 @@
         <div id="video-container" class="w-full p-4 flex flex-col items-center justify-center bg-background-dark relative flex-grow">
 
             <!-- Video Wrapper (Khung chứa video, dùng để giữ tỉ lệ và áp dụng giới hạn chiều rộng) -->
-            <div id="video-wrapper" class="w-full rounded-xl shadow-2xl bg-black border border-gray-700 relative overflow-hidden hidden max-h-full">
-                <!-- videoPlayer KHÔNG CÓ controls mặc định, được bật/tắt bằng JS -->
+            <div id="video-wrapper" class="w-full rounded-xl shadow-2xl bg-black border border-gray-700 relative overflow-hidden hidden max-h-full aspect-ratio-box">
+                
+                <!-- Video Player (Chỉ dùng cho local file) -->
                 <video id="videoPlayer"></video>
                 
-                <!-- Custom Controls Overlay -->
-                <!-- Chỉ hiển thị khi video là ngang/vuông. Luôn nằm TUYỆT ĐỐI bên trong wrapper -->
+                <!-- YouTube Iframe Container (iFrame được chèn vào đây khi chọn link YouTube) -->
+                <!-- iFrame sẽ có id="youtubeEmbed" và được thêm/xóa bằng JS -->
+
+                <!-- Custom Controls Overlay (Chỉ dùng cho local file, bị ẩn khi dùng YouTube) -->
                 <div id="controls-overlay" class="transition-opacity duration-300 opacity-0 pointer-events-none p-4">
                     <div id="customControls" class="w-full bg-gray-900/90 backdrop-blur-sm p-3 rounded-xl shadow-2xl border border-gray-700 flex flex-col pointer-events-auto">
                         
@@ -267,13 +269,54 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                 </svg>
                 <p class="text-lg font-medium">Kéo & Thả Video Hoặc</p>
-                <p class="text-sm mt-1">Nhấn "Chọn Video" để bắt đầu.</p>
+                <p class="text-sm mt-1">Nhấn "Chọn Nguồn" để bắt đầu.</p>
                 <p class="text-xs mt-3 text-yellow-400">🚨 Để Mở File Trực Tiếp: Cài đặt ứng dụng PWA này qua trình duyệt!</p>
             </div>
         </div>
         
         <!-- CUSTOM TOOLTIP DIV (Dùng position: fixed) -->
         <div id="customTooltip" class="hidden"></div>
+
+        <!-- File Source Modal - NEW COMPONENT -->
+        <div id="fileSourceModal" class="fixed inset-0 bg-gray-900/80 backdrop-blur-sm z-40 flex items-center justify-center hidden">
+            <div class="bg-gray-800 p-6 rounded-xl shadow-2xl w-full max-w-md border border-gray-700">
+                <h2 class="text-xl font-bold mb-4 text-white">Chọn Nguồn Video</h2>
+                
+                <!-- Tab: Tải Lên Video -->
+                <!-- Sử dụng handleLocalFileSelection() để mở hộp thoại và tự động đóng modal -->
+                <div id="tabUpload" class="border border-dashed border-gray-700 p-4 rounded-lg mb-4 text-center hover:bg-gray-700/50 transition cursor-pointer" onclick="handleLocalFileSelection()">
+                    <span class="material-symbols-outlined text-4xl text-accent mx-auto block mb-2">video_library</span>
+                    <p class="font-semibold text-lg">Tải Lên Video (Tệp cục bộ)</p>
+                    <p class="text-sm text-gray-400">Chọn tệp MP4, MOV từ máy tính (có quyền chỉnh sửa nếu dùng FSSA).</p>
+                </div>
+
+                <div class="flex items-center my-4">
+                    <div class="flex-grow border-t border-gray-700"></div>
+                    <span class="flex-shrink mx-4 text-gray-500 text-sm font-medium">HOẶC</span>
+                    <div class="flex-grow border-t border-gray-700"></div>
+                </div>
+
+                <!-- Tab: Nhập Link -->
+                <div>
+                    <label for="videoLinkInput" class="block text-sm font-medium text-gray-300 mb-2">Nhập Link Video (Ưu tiên YouTube)</label>
+                    <input type="text" id="videoLinkInput" placeholder="Ví dụ: https://www.youtube.com/watch?v=..." class="w-full p-3 bg-gray-700 text-white rounded-lg border border-gray-600 focus:ring-accent focus:border-accent">
+                    
+                    <button id="loadLinkBtn" onclick="handleLinkInput()" class="group w-full mt-3 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg shadow-md transition duration-300 transform hover:scale-[1.01] flex items-center justify-center space-x-2">
+                        <span class="material-symbols-outlined text-xl">link</span>
+                        <span>Tải từ Link</span>
+                    </button>
+                    
+                    <!-- Vùng hiển thị lỗi/cảnh báo -->
+                    <div id="linkError" class="text-sm text-red-400 mt-2 hidden flex items-center space-x-1">
+                        <span class="material-symbols-outlined text-base">warning</span>
+                        <span id="linkErrorText"></span>
+                    </div>
+                </div>
+
+                <button onclick="hideModal()" class="mt-4 text-gray-400 hover:text-white transition w-full">Hủy</button>
+            </div>
+        </div>
+        <!-- END File Source Modal -->
 
     </main>
     
@@ -292,14 +335,23 @@
         const dragOverlay = document.getElementById('drag-overlay');
         const shareBtn = document.getElementById('shareBtn'); 
         const fileInputFallback = document.getElementById('fileInputFallback'); 
-        const customTooltip = document.getElementById('customTooltip'); // Thêm tooltip
+        const customTooltip = document.getElementById('customTooltip'); 
+        
+        // Modal elements
+        const fileSourceModal = document.getElementById('fileSourceModal');
+        const videoLinkInput = document.getElementById('videoLinkInput');
+        const linkError = document.getElementById('linkError');
+        const linkErrorText = document.getElementById('linkErrorText');
 
-        // Global State for File System Access API
+
+        // Global State 
         let currentFileURL = null; 
         let currentFileName = null;
-        let currentFileHandle = null; // Lưu trữ File Handle để chia sẻ file gốc
+        let currentFileHandle = null; 
         let controlsTimeout;
         const defaultPlaybackRate = 1.0;
+        let isYouTube = false; // NEW STATE: Kiểm tra xem đang ở chế độ YouTube không
+        let youTubeIframe = null; // Store the iframe reference
         
         // --- UTILITY FUNCTIONS ---
 
@@ -313,10 +365,10 @@
         }
 
         function showControls() {
-            // Chỉ hiển thị controls nếu chúng không bị ẩn (vì đang dùng native controls)
+            if (isYouTube) return; // Bỏ qua nếu là YouTube
             if (controlsOverlay.classList.contains('hidden')) return;
-            
             if (videoWrapper.classList.contains('hidden')) return;
+            
             controlsOverlay.classList.remove('opacity-0');
             clearTimeout(controlsTimeout);
             
@@ -328,35 +380,68 @@
         }
 
         function hideControls() {
+            if (isYouTube) return; // Bỏ qua nếu là YouTube
             if (controlsOverlay.classList.contains('hidden')) return;
             clearTimeout(controlsTimeout);
             controlsOverlay.classList.add('opacity-0');
         }
 
-        /**
-         * Cập nhật trạng thái nút Chia sẻ dựa trên File Handle.
-         */
         function updateShareButtonState() {
-            // Nút Share chỉ hiện khi có File Handle (đã xin quyền chỉnh sửa)
-            if (currentFileHandle) {
+            // Nút Share chỉ hiện khi có File Handle VÀ KHÔNG PHẢI YOUTUBE
+            if (currentFileHandle && !isYouTube) {
                 shareBtn.classList.remove('hidden');
                 shareBtn.title = "Chia sẻ tệp gốc (Yêu cầu quyền chỉnh sửa)";
             } else {
                 shareBtn.classList.add('hidden');
             }
         }
+        
+        // --- MEDIA PLAYER SWITCHING LOGIC ---
 
-        // --- CORE APPLICATION LOGIC ---
+        /**
+         * Hàm reset về trạng thái media player local (videoPlayer)
+         */
+        function resetMediaPlayer() {
+            isYouTube = false;
+            
+            // 1. Dọn dẹp YouTube iframe
+            if (youTubeIframe && videoWrapper.contains(youTubeIframe)) {
+                videoWrapper.removeChild(youTubeIframe);
+                youTubeIframe = null;
+            }
+            
+            // 2. Clear local video source (để dừng phát)
+            videoPlayer.pause();
+            if (currentFileURL) {
+                URL.revokeObjectURL(currentFileURL);
+                currentFileURL = null;
+            }
+            videoPlayer.removeAttribute('src');
+            
+            // 3. Hiện các phần tử local và controls
+            videoPlayer.classList.remove('hidden');
+            controlsOverlay.classList.remove('hidden');
+            controlsOverlay.classList.add('opacity-0'); // Mặc định ẩn
+            
+            // 4. Update UI state
+            document.getElementById('playPauseIcon').textContent = 'play_arrow'; 
+            currentVideoInfo.textContent = 'Sẵn sàng nhận lệnh...';
+            currentFileName = null;
+            currentFileHandle = null;
+
+            // 5. Ẩn wrapper nếu không có nội dung
+            videoWrapper.classList.add('hidden');
+            placeholder.classList.remove('hidden');
+            updateShareButtonState();
+        }
 
         /**
          * Tải và bắt đầu phát video từ File object.
          * @param {File} file - Đối tượng File
          */
         function loadVideoFromFile(file) {
-            if (currentFileURL) {
-                URL.revokeObjectURL(currentFileURL);
-            }
-
+            resetMediaPlayer(); // Đảm bảo reset YouTube mode
+            
             const objectURL = URL.createObjectURL(file);
             currentFileURL = objectURL;
             currentFileName = file.name;
@@ -370,11 +455,9 @@
             // Cập nhật giao diện: Ẩn placeholder, hiện video wrapper
             placeholder.classList.add('hidden');
             videoWrapper.classList.remove('hidden');
-            videoWrapper.classList.add('aspect-ratio-box');
             
             videoPlayer.play().catch(e => {
                 console.warn("Lỗi tự động phát: " + e.message);
-                // CHỈ CẬP NHẬT TRẠNG THÁI VÀ TÊN FILE (ĐÃ XÓA THỜI GIAN)
                 currentVideoInfo.textContent = `▶️ Đã tải: ${file.name}. Vui lòng nhấn nút Play.`;
                 showControls();
             });
@@ -383,13 +466,31 @@
             updateShareButtonState();
         }
         
-        // --- FILE PICKER & FALLBACK LOGIC ---
+        // --- MODAL LOGIC ---
+        function showModal() {
+            fileSourceModal.classList.remove('hidden');
+            linkError.classList.add('hidden');
+            linkErrorText.textContent = '';
+            videoLinkInput.value = '';
+        }
+
+        function hideModal() {
+            fileSourceModal.classList.add('hidden');
+        }
+
+        // --- FILE PICKER & LINK LOGIC ---
+
+        // NEW: handleFilePicker chỉ show modal
+        function handleFilePicker() {
+            showModal();
+        }
 
         /**
-         * Xử lý file bằng File System Access API (yêu cầu quyền chỉnh sửa).
+         * Logic chọn file cục bộ (Tách ra từ handleFilePicker cũ)
          */
-        async function handleFilePicker() {
-            // Fallback Level 1: Trình duyệt không hỗ trợ FSSA
+        async function handleLocalFileSelection() {
+            hideModal(); // Ẩn modal ngay
+            
             if (!window.showOpenFilePicker) {
                 currentVideoInfo.textContent = 'Trình duyệt không hỗ trợ FSSA. Mở hộp thoại file truyền thống...';
                 fileInputFallback.click(); 
@@ -408,22 +509,20 @@
 
                 currentFileHandle = fileHandle; 
                 const file = await fileHandle.getFile();
+                
                 loadVideoFromFile(file);
-                // CHỈ CẬP NHẬT TRẠNG THÁI VÀ TÊN FILE (ĐÃ XÓA THỜI GIAN)
                 currentVideoInfo.textContent = `✅ Đã cấp quyền chỉnh sửa cho: ${file.name}`;
 
             } catch (err) {
                 if (err.name === 'AbortError') {
-                    // Người dùng chủ động hủy (họ không muốn chọn file nữa)
                     currentVideoInfo.textContent = 'Chọn tệp bị hủy.';
                 } else {
-                    // Lỗi bất ngờ (không phải do hủy hoặc lỗi quyền) -> Fallback Level 2
                     console.error('Lỗi File System Access API:', err);
                     currentFileHandle = null; 
                     currentVideoInfo.textContent = '❌ Lỗi FSSA. Đang chuyển sang chọn file truyền thống...';
-                    fileInputFallback.click(); // Kích hoạt chọn file truyền thống
+                    fileInputFallback.click(); 
                 }
-                updateShareButtonState(); // Đảm bảo nút share ẩn nếu có lỗi
+                updateShareButtonState();
             }
         }
 
@@ -435,10 +534,87 @@
             if (files.length > 0) {
                 currentFileHandle = null; // Luôn reset khi dùng Fallback
                 loadVideoFromFile(files[0]);
+                currentVideoInfo.textContent = `⚠️ Đã tải file: ${files[0].name} (chế độ chỉ đọc).`;
             }
         }
         
-        // --- DRAG & DROP LOGIC ---
+        /**
+         * Helper: Trích xuất YouTube ID
+         */
+        function getYoutubeVideoId(url) {
+            const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|\w+\/|watch\?v=))([^&]+)|(?:youtu\.be\/)([^&?]+)/;
+            const match = url.match(regex);
+            if (match) {
+                return match[1] || match[2];
+            }
+            return null;
+        }
+
+        /**
+         * Xử lý đầu vào Link
+         */
+        function handleLinkInput() {
+            const url = videoLinkInput.value.trim();
+            linkError.classList.add('hidden');
+
+            if (!url) {
+                linkErrorText.textContent = "Vui lòng nhập link video.";
+                linkError.classList.remove('hidden');
+                return;
+            }
+            
+            const videoId = getYoutubeVideoId(url);
+            
+            if (videoId) {
+                hideModal();
+                loadYouTubeEmbed(videoId);
+            } else {
+                // Link không hợp lệ hoặc không phải YouTube/External
+                linkErrorText.textContent = "Hiện tại ứng dụng chưa hỗ trợ link video bên ngoài YouTube.";
+                linkError.classList.remove('hidden');
+            }
+        }
+
+        /**
+         * Chuyển sang chế độ YouTube Embed
+         */
+        function loadYouTubeEmbed(videoId) {
+            resetMediaPlayer(); // Đảm bảo dọn dẹp trạng thái Local File
+            isYouTube = true;
+            currentFileName = `YouTube: ${videoId}`;
+
+            // Ẩn Local elements
+            videoPlayer.classList.add('hidden');
+            controlsOverlay.classList.add('hidden');
+            placeholder.classList.add('hidden');
+            videoWrapper.classList.remove('hidden');
+            
+            // Tạo và chèn Iframe
+            // Dùng autoplay=1, controls=1 (YouTube controls), modestbranding=1 (bỏ logo YT lớn)
+            const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&controls=1&modestbranding=1&rel=0&showinfo=0`;
+            
+            youTubeIframe = document.createElement('iframe');
+            youTubeIframe.id = 'youtubeEmbed';
+            youTubeIframe.src = embedUrl;
+            youTubeIframe.frameBorder = '0';
+            
+            // FIX CỦA PHONG: Tăng cường quyền hạn cho iframe để tránh lỗi sandbox/CSP (Lỗi 153)
+            // Thêm web-share, clipboard-write, và đảm bảo fullscreen được khai báo là attribute
+            youTubeIframe.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture; web-share; clipboard-write');
+            youTubeIframe.setAttribute('allowfullscreen', 'true'); // Rất quan trọng trong môi trường iframe
+            
+            youTubeIframe.className = 'w-full h-full absolute top-0 left-0'; 
+            
+            // Chèn Iframe vào wrapper
+            videoWrapper.appendChild(youTubeIframe);
+
+            // Cập nhật info bar
+            currentVideoInfo.textContent = `▶️ Đang phát YouTube: https://youtu.be/${videoId} (Dùng controls gốc)`;
+            updateShareButtonState();
+        }
+
+
+        // --- DRAG & DROP LOGIC (Giữ nguyên) ---
 
         function handleFileDrop(e) {
             e.preventDefault();
@@ -470,6 +646,11 @@
 
         // --- SHARE LOGIC (Giữ nguyên) ---
         async function handleShare() {
+            if (isYouTube) {
+                currentVideoInfo.textContent = "🚫 Lỗi: Không thể chia sẻ tệp gốc khi đang phát YouTube.";
+                return;
+            }
+            // ... (Phần logic Chia sẻ tệp gốc / Fallback PWA Link) ...
             if (!navigator.share) {
                 currentVideoInfo.textContent = "🚫 Lỗi: Trình duyệt không hỗ trợ chia sẻ native (Web Share API).";
                 return;
@@ -516,9 +697,10 @@
         }
         shareBtn.addEventListener('click', handleShare);
         
-        // --- CUSTOM CONTROLS LOGIC (Chỉ chạy khi dùng Custom Controls) ---
+        // --- CUSTOM CONTROLS LOGIC (CHỈ DÙNG CHO LOCAL FILE) ---
         
         function skip(seconds) {
+            if (isYouTube) return;
             if (!videoPlayer.src) return;
             // Chỉ show controls custom nếu chúng đang hoạt động
             if (!videoPlayer.controls) {
@@ -534,7 +716,8 @@
         const speedRates = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
 
         function setPlaybackSpeed(speed) {
-            if (videoPlayer.controls) return; // Nếu dùng native controls thì bỏ qua
+            if (isYouTube) return;
+            if (videoPlayer.controls) return; 
             videoPlayer.playbackRate = speed;
             document.getElementById('speedBtn').textContent = `${speed.toFixed(2).replace(/\.00$/, '.0')}x`;
             document.getElementById('speedMenu').classList.add('hidden');
@@ -569,12 +752,13 @@
             
             document.getElementById('speedBtn').addEventListener('click', (e) => {
                 e.stopPropagation(); 
-                if (videoPlayer.controls) return; // Không hiển thị nếu dùng native controls
+                if (isYouTube || videoPlayer.controls) return; 
                 speedMenu.classList.toggle('hidden');
                 showControls();
             });
 
             document.addEventListener('click', (e) => {
+                if (isYouTube) return;
                 if (!document.getElementById('speedBtn').contains(e.target) && !speedMenu.contains(e.target)) {
                     speedMenu.classList.add('hidden');
                 }
@@ -582,7 +766,8 @@
         }
         
         function toggleLoop() {
-            if (videoPlayer.controls) return; // Nếu dùng native controls thì bỏ qua
+            if (isYouTube) return;
+            if (videoPlayer.controls) return; 
             videoPlayer.loop = !videoPlayer.loop;
             const loopBtn = document.getElementById('loopBtn');
             const loopIcon = loopBtn.querySelector('.material-symbols-outlined');
@@ -603,11 +788,13 @@
         document.getElementById('loopBtn').addEventListener('click', toggleLoop);
         
         document.getElementById('pipBtn').addEventListener('click', () => {
+             if (isYouTube) return;
              if (!videoPlayer.src) return;
              togglePiP();
         });
         
         function togglePiP() {
+            if (isYouTube) return;
             if (!videoPlayer.src) return;
             if (!document.pictureInPictureElement) {
                 videoPlayer.requestPictureInPicture().catch(err => {
@@ -623,7 +810,7 @@
         }
         
         document.getElementById('fullscreenBtn').addEventListener('click', () => {
-            if (!videoPlayer.src) return;
+            if (!videoPlayer.src && !isYouTube) return; // Không làm gì nếu không có source
             if (document.fullscreenElement) {
                 document.exitFullscreen();
             } else {
@@ -649,6 +836,7 @@
         }
 
         document.getElementById('volumeSlider').addEventListener('input', () => {
+            if (isYouTube) return;
             const volumeSlider = document.getElementById('volumeSlider');
             const volume = volumeSlider.value / 100;
             videoPlayer.volume = volume;
@@ -657,6 +845,7 @@
         });
 
         document.getElementById('volumeBtn').addEventListener('click', () => {
+            if (isYouTube) return;
             videoPlayer.muted = !videoPlayer.muted;
             updateVolumeIcon(videoPlayer.volume, videoPlayer.muted);
             if (!videoPlayer.muted && videoPlayer.volume === 0) {
@@ -668,6 +857,7 @@
 
         // Play/Pause Toggle
         function togglePlayPause() {
+            if (isYouTube) return;
             if (!videoPlayer.src) return;
             if (videoPlayer.paused || videoPlayer.ended) {
                 videoPlayer.play().catch(e => console.error("Lỗi Play: ", e));
@@ -677,6 +867,7 @@
         }
         document.getElementById('playPauseBtn').addEventListener('click', togglePlayPause);
         videoPlayer.addEventListener('click', (event) => {
+            if (isYouTube) return;
             // Không can thiệp nếu đang dùng native controls
             if (videoPlayer.controls) return;
             // Ngăn chặn click vào custom controls kích hoạt pause
@@ -686,28 +877,23 @@
 
         // --- TOOLTIP LOGIC MỚI ---
         function showTooltip(element) {
-            // Nếu đang dùng native controls thì không hiển thị tooltip custom
+            if (isYouTube) return;
             if (videoPlayer.controls) return; 
 
             const title = element.title;
-            if (!title) return; // Không có title thì thôi
+            if (!title) return; 
 
             customTooltip.textContent = title;
             customTooltip.classList.remove('hidden');
             
-            // Lấy vị trí của nút
             const rect = element.getBoundingClientRect();
             
-            // Tính toán vị trí của tooltip (căn giữa theo chiều ngang của nút, nằm trên nút)
             const tooltipX = rect.left + (rect.width / 2);
-            const tooltipY = rect.top - 10; // Cách nút 10px
+            const tooltipY = rect.top - 10; 
 
-            // Set vị trí (dùng style.left/top)
             customTooltip.style.left = `${tooltipX}px`;
             customTooltip.style.top = `${tooltipY}px`;
             
-            // Căn chỉnh tâm của tooltip
-            // Dùng requestAnimationFrame để đảm bảo đã render xong text và có width chính xác
             requestAnimationFrame(() => {
                 const tooltipWidth = customTooltip.offsetWidth;
                 customTooltip.style.transform = `translateX(-${tooltipWidth / 2}px) translateY(0)`;
@@ -725,18 +911,15 @@
         }
 
         function setupTooltips() {
-            // Lấy tất cả các nút bên trong customControls có thuộc tính title
             const buttons = document.querySelectorAll('#customControls button[title], #speedBtn[title]');
             
             buttons.forEach(button => {
-                // Đảm bảo không gắn sự kiện cho nút speedMenu vì nó không phải nút điều khiển chính
                 if (button.id === 'speedMenu') return;
 
                 button.addEventListener('mouseenter', () => showTooltip(button));
                 button.addEventListener('mouseleave', hideTooltip);
             });
 
-            // Nếu rê chuột ra khỏi khu vực controls thì ẩn tooltip
             controlsOverlay.addEventListener('mouseleave', hideTooltip);
         }
         // --- END TOOLTIP LOGIC MỚI ---
@@ -745,22 +928,24 @@
         // --- EVENT LISTENERS ---
 
         // Controls visibility (Chỉ chạy khi custom controls đang hoạt động)
-        videoWrapper.addEventListener('mousemove', () => { if (!videoPlayer.controls) showControls(); });
-        videoWrapper.addEventListener('mouseenter', () => { if (!videoPlayer.controls) showControls(); });
+        videoWrapper.addEventListener('mousemove', () => { if (!videoPlayer.controls && !isYouTube) showControls(); });
+        videoWrapper.addEventListener('mouseenter', () => { if (!videoPlayer.controls && !isYouTube) showControls(); });
         videoWrapper.addEventListener('mouseleave', () => {
-            if (!videoPlayer.controls && !videoPlayer.paused) {
+            if (!videoPlayer.controls && !videoPlayer.paused && !isYouTube) {
                 hideControls();
             }
         });
         
         // Icon updates
         videoPlayer.addEventListener('play', () => {
+            if (isYouTube) return;
             if (!videoPlayer.controls) {
                 document.getElementById('playPauseIcon').textContent = 'pause'; 
                 setTimeout(hideControls, 1000); 
             }
         });
         videoPlayer.addEventListener('pause', () => {
+            if (isYouTube) return;
             if (!videoPlayer.controls) {
                 document.getElementById('playPauseIcon').textContent = 'play_arrow'; 
                 showControls();
@@ -778,6 +963,8 @@
         
         // Time and Progress Bar Update (Áp dụng cho cả 2 chế độ)
         videoPlayer.addEventListener('loadedmetadata', () => {
+            if (isYouTube) return; // Bỏ qua nếu là YouTube
+
             const ratio = videoPlayer.videoHeight / videoPlayer.videoWidth;
             const paddingBottom = ratio * 100; 
             videoWrapper.style.setProperty('--video-ratio', `${paddingBottom}%`);
@@ -786,8 +973,6 @@
             const timeDisplay = document.getElementById('timeDisplay');
             progressBar.max = videoPlayer.duration;
             
-            let statusText = ''; // Biến để lưu trạng thái format
-
             // 1. Reset tất cả max-w classes và Controls
             videoWrapper.classList.remove('max-w-5xl', 'max-w-xs', 'md:max-w-sm'); 
             videoPlayer.controls = false; // Tắt mặc định
@@ -796,7 +981,6 @@
             if (videoPlayer.videoHeight > videoPlayer.videoWidth) {
                 // Video Dọc (Portrait) -> Dùng Native Controls
                 videoWrapper.classList.add('max-w-xs', 'md:max-w-sm'); 
-                statusText = ' (Dọc)'; // Dùng để hiển thị trong header nếu cần
                 
                 // === BẬT NATIVE CONTROLS VÀ ẨN CUSTOM CONTROLS ===
                 videoPlayer.controls = true;
@@ -804,25 +988,22 @@
             } else {
                 // Video Ngang hoặc Vuông (Landscape/Square) -> Dùng Custom Controls
                 videoWrapper.classList.add('max-w-5xl');
-                statusText = ' (Ngang/Vuông)'; // Dùng để hiển thị trong header nếu cần
                 
                 // === TẮT NATIVE CONTROLS VÀ HIỂN THỊ CUSTOM CONTROLS ===
                 videoPlayer.controls = false;
                 controlsOverlay.classList.remove('hidden');
             }
             
-            // Cập nhật #timeDisplay (BỎ CHỮ CUSTOM CONTROLS)
             timeDisplay.textContent = `${formatTime(0)} / ${formatTime(videoPlayer.duration)}`;
-            
-            // Cập nhật #currentVideoInfo (BỎ THỜI GIAN VÀ CHỮ FORMAT)
             currentVideoInfo.textContent = `Đang phát: ${currentFileName || 'Video'}`;
-            // --------------------------------------------------------
             
             document.getElementById('volumeSlider').value = videoPlayer.volume * 100;
             updateVolumeIcon(videoPlayer.volume, videoPlayer.muted);
         });
 
         videoPlayer.addEventListener('timeupdate', () => {
+            if (isYouTube) return; // Bỏ qua nếu là YouTube
+
             // Chỉ cập nhật progress bar nếu đang dùng custom controls
             if (!videoPlayer.controls) {
                 const progressBar = document.getElementById('progressBar');
@@ -831,12 +1012,12 @@
                     progressBar.value = videoPlayer.currentTime;
                 }
                 
-                // Cập nhật thời gian hiển thị (CHỈ HIỂN THỊ THỜI GIAN)
                 timeDisplay.textContent = `${formatTime(videoPlayer.currentTime)} / ${formatTime(videoPlayer.duration)}`;
             }
         });
 
         document.getElementById('progressBar').addEventListener('input', () => {
+            if (isYouTube) return; // Bỏ qua nếu là YouTube
             if (!videoPlayer.controls && !isNaN(videoPlayer.duration) && videoPlayer.duration > 0) {
                 videoPlayer.currentTime = document.getElementById('progressBar').value;
             }
@@ -855,7 +1036,7 @@
             }
         });
         
-        // --- PWA LAUNCHQUEUE LOGIC (Giữ nguyên) ---
+        // --- PWA LAUNCHQUEUE LOGIC ---
         if ('launchQueue' in window) {
             console.log('[File Handler] API supported. Setting consumer... (PWA)');
             window.launchQueue.setConsumer(async (launchParams) => {
@@ -865,26 +1046,24 @@
                     const fileHandle = launchParams.files[0];
                     
                     try {
-                        // Cố gắng xin quyền readwrite
                         const permissionStatus = await fileHandle.queryPermission({ mode: 'readwrite' });
                         if (permissionStatus !== 'granted') {
                              await fileHandle.requestPermission({ mode: 'readwrite' });
                         }
 
-                        currentFileHandle = fileHandle; // Lưu File Handle
+                        currentFileHandle = fileHandle; 
                         const file = await fileHandle.getFile();
                         
+                        resetMediaPlayer(); // Reset trước khi load
                         loadVideoFromFile(file);
-                        // CHỈ CẬP NHẬT TRẠNG THÁI VÀ TÊN FILE
                         currentVideoInfo.textContent = `🎬 Đang mở file qua desktop: ${file.name}`;
                     } catch (error) {
                         console.error('Lỗi khi truy cập File Handle:', error);
-                        // Nếu OS mở file nhưng không cấp quyền, ta vẫn có file obj để load
                         try {
                             const file = await fileHandle.getFile();
-                            currentFileHandle = null; // Vẫn load nhưng không có quyền Share/Write
+                            currentFileHandle = null; 
+                            resetMediaPlayer(); // Reset trước khi load
                             loadVideoFromFile(file);
-                            // CHỈ CẬP NHẬT TRẠNG THÁI VÀ TÊN FILE
                             currentVideoInfo.textContent = `⚠️ Mở file thành công: ${file.name}`;
                         } catch (readError) {
                             console.error('Lỗi khi đọc file sau khi thất bại readwrite:', readError);
@@ -892,11 +1071,11 @@
                             currentVideoInfo.textContent = '🚫 Lỗi khi cố gắng mở file.';
                         }
                     }
-                    updateShareButtonState(); // Cập nhật trạng thái Share button
+                    updateShareButtonState(); 
                 } else {
                     console.log('[File Handler] App launched without files.');
-                    currentFileHandle = null; // Reset
-                    updateShareButtonState(); // Cập nhật trạng thái Share button
+                    currentFileHandle = null; 
+                    updateShareButtonState(); 
                     currentVideoInfo.textContent = 'Ứng dụng đã khởi động. Kéo & Thả video để phát!';
                 }
             });
