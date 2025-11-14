@@ -176,12 +176,12 @@
                 </button>
                 
                 <!-- Share Button -->
-                <button id="shareBtn" title="Chia sẻ tệp gốc" class="group p-2 text-gray-300 hover:text-accent rounded-lg transition duration-150 transform hover:scale-105">
+                <button id="shareBtn" title="Chia sẻ tệp gốc" class="group p-2 text-gray-300 hover:text-green-400 rounded-lg transition duration-150 transform hover:scale-105">
                     <span class="material-symbols-outlined text-xl">share</span>
                 </button>
                 
-                <!-- Delete Button (CHỈ HIỆN KHI CÓ FILE HANDLE) -->
-                <button id="deleteBtn" title="Xóa tệp gốc" class="group p-2 text-gray-300 hover:text-danger rounded-lg transition duration-150 transform hover:scale-105 hidden" onclick="showDeleteConfirmModal()">
+                <!-- Delete Button (BỊ ẨN VĨNH VIỄN DO GIỚI HẠN WEB API) -->
+                <button id="deleteBtn" title="Hạn chế Web API: Xóa tệp không được hỗ trợ qua File Handle" class="group p-2 text-gray-300 hover:text-danger rounded-lg transition duration-150 transform hover:scale-105 hidden" onclick="showApiLimitationMessage()">
                     <span class="material-symbols-outlined text-xl">delete</span>
                 </button>
 
@@ -367,26 +367,18 @@
         </div>
         <!-- END MODAL 2: File Info Modal -->
         
-        <!-- MODAL 3: Xác nhận Xóa File -->
-        <div id="deleteConfirmModal" class="fixed inset-0 bg-gray-900/80 backdrop-blur-sm z-40 flex items-center justify-center hidden">
+        <!-- MODAL 3: Cảnh báo Quyền Truy Cập (Yêu cầu của Phong) -->
+        <div id="permissionRequiredModal" class="fixed inset-0 bg-gray-900/80 backdrop-blur-sm z-40 flex items-center justify-center hidden">
             <div class="bg-gray-800 p-6 rounded-xl shadow-2xl w-full max-w-md border border-gray-700">
-                <h2 class="text-xl font-bold mb-4 text-red-400 flex items-center space-x-2">
-                    <span class="material-symbols-outlined">warning</span>
-                    <span>Xác nhận XÓA TỆP</span>
+                <h2 class="text-xl font-bold mb-4 text-white flex items-center space-x-2">
+                    <span class="material-symbols-outlined text-warning text-3xl">info</span>
+                    <span>Cần có quyền Đọc & Ghi</span>
                 </h2>
-                <p class="text-gray-300 mb-4">Bạn có chắc chắn muốn xóa vĩnh viễn tệp <strong><span id="fileNameToDelete" class="text-white"></span></strong> khỏi hệ thống của bạn không?</p>
-                <p class="text-sm text-yellow-400 mb-6">⚠️ Hành động này không thể hoàn tác.</p>
-                
-                <div class="flex justify-end space-x-4">
-                    <button onclick="hideModal('deleteConfirmModal')" class="px-4 py-2 text-gray-300 bg-gray-700 hover:bg-gray-600 rounded-lg transition duration-300">Hủy</button>
-                    <button onclick="deleteFile()" class="px-4 py-2 bg-danger hover:bg-red-600 text-white font-semibold rounded-lg transition duration-300 flex items-center space-x-2">
-                        <span class="material-symbols-outlined text-xl">delete_forever</span>
-                        <span>Xóa Vĩnh Viễn</span>
-                    </button>
-                </div>
+                <p class="text-gray-300 mb-6">Hiện tại tệp đang ở "Chỉ đọc". Vui lòng tải lên tệp với quyền "Đọc & Ghi" (bằng cách dùng nút <b>Chọn Nguồn</b> > <b>Tải Lên Video</b>) để có thể chia sẻ tệp gốc qua hệ thống chia sẻ của trình duyệt.</p>
+                <button onclick="hideModal('permissionRequiredModal')" class="mt-4 w-full bg-accent hover:bg-blue-600 text-white font-semibold py-2 rounded-lg transition duration-300">OK</button>
             </div>
         </div>
-        <!-- END MODAL 3: Xác nhận Xóa File -->
+        <!-- END MODAL 3: Cảnh báo Quyền Truy Cập -->
 
     </main>
     
@@ -413,7 +405,7 @@
         // Modal elements
         const fileSourceModal = document.getElementById('fileSourceModal');
         const fileInfoModal = document.getElementById('fileInfoModal');
-        const deleteConfirmModal = document.getElementById('deleteConfirmModal');
+        const permissionRequiredModal = document.getElementById('permissionRequiredModal'); // NEW MODAL ELEMENT
         const videoLinkInput = document.getElementById('videoLinkInput');
         const linkError = document.getElementById('linkError');
         const linkErrorText = document.getElementById('linkErrorText');
@@ -422,8 +414,8 @@
         // Global State 
         let currentFileURL = null; 
         let currentFileName = null;
-        let currentFileHandle = null; // Giữ quyền chỉnh sửa file (File Handle Persistence)
-        let currentFileDetails = null; // Lưu chi tiết File object
+        let currentFileHandle = null; 
+        let currentFileDetails = null; 
         let controlsTimeout;
         const defaultPlaybackRate = 1.0;
         
@@ -474,9 +466,12 @@
         }
 
         /**
-         * Cập nhật trạng thái các nút Share, Info, Delete dựa trên nguồn và quyền.
+         * Cập nhật trạng thái các nút Share, Info.
          */
         function updateFileActionsState() {
+            // Nút Delete luôn ẩn vì Web API không hỗ trợ xóa file qua FileHandle (chỉ qua DirectoryHandle).
+            deleteBtn.classList.add('hidden'); 
+
             if (isYouTubeEmbed || !currentFileName) {
                 fileActionsGroup.classList.add('hidden');
             } else {
@@ -485,13 +480,14 @@
                 // Nút Share luôn hiện nếu là file local
                 shareBtn.classList.remove('hidden'); 
                 
-                // Nút Delete chỉ hiện khi có File Handle (quyền chỉnh sửa)
                 if (currentFileHandle) {
-                    deleteBtn.classList.remove('hidden');
-                    shareBtn.title = "Chia sẻ tệp gốc (Yêu cầu quyền chỉnh sửa)";
+                    shareBtn.title = "Chia sẻ tệp gốc (Có quyền truy cập Đọc/Ghi)";
+                    shareBtn.classList.remove('text-red-400');
+                    shareBtn.classList.add('hover:text-green-400');
                 } else {
-                    deleteBtn.classList.add('hidden');
-                    shareBtn.title = "Chia sẻ tệp (Chỉ quyền đọc)";
+                    shareBtn.title = "Chia sẻ bị chặn. Bấm để xem tại sao.";
+                    shareBtn.classList.remove('hover:text-green-400');
+                    shareBtn.classList.add('hover:text-red-400');
                 }
             }
         }
@@ -500,7 +496,6 @@
 
         /**
          * Hàm reset về trạng thái media player local.
-         * QUAN TRỌNG: Chỉ reset currentFileHandle khi chuyển sang nguồn không phải file (YouTube)
          */
         function resetMediaPlayer(resetFileHandle = true) {
             isYouTubeEmbed = false;
@@ -548,7 +543,6 @@
 
         /**
          * Tải và bắt đầu phát video từ File object.
-         * @param {File} file - Đối tượng File
          */
         function loadVideoFromFile(file) {
             // KHÔNG RESET currentFileHandle ở đây, vì nó đã được set/reset ở FSSA/Fallback logic
@@ -761,7 +755,7 @@
         
         document.body.addEventListener('drop', handleFileDrop);
 
-        // --- FILE HANDLE ACTIONS (INFO, SHARE, DELETE) ---
+        // --- FILE HANDLE ACTIONS (INFO, SHARE) ---
 
         /**
          * Hiện Modal Thông tin File
@@ -775,11 +769,22 @@
             const content = document.getElementById('fileInfoContent');
             const date = currentFileDetails.lastModified ? new Date(currentFileDetails.lastModified) : null;
             
+            // Cập nhật Quyền Truy Cập
+            let permissionStatus = 'Chỉ Đọc (Fallback)';
+            let permissionColor = 'text-yellow-400';
+            if (currentFileHandle) {
+                permissionStatus = 'Đọc & Ghi (FSSA)';
+                permissionColor = 'text-green-400';
+            } else if (isYouTubeEmbed) {
+                permissionStatus = 'Nguồn ngoài (YouTube)';
+                permissionColor = 'text-gray-400';
+            }
+
             const data = [
-                { label: 'Tên Tệp', value: currentFileDetails.name, accent: true },
-                { label: 'Kích Thước', value: formatBytes(currentFileDetails.size) },
+                { label: 'Tên Tệp', value: currentFileDetails.name || currentFileName, accent: true },
+                { label: 'Kích Thước', value: currentFileDetails.size ? formatBytes(currentFileDetails.size) : 'N/A' },
                 { label: 'Loại MIME', value: currentFileDetails.type || 'N/A' },
-                { label: 'Quyền Truy Cập', value: currentFileHandle ? 'Đọc & Ghi (FSSA)' : 'Chỉ Đọc (Fallback)', color: currentFileHandle ? 'text-green-400' : 'text-yellow-400' },
+                { label: 'Quyền Truy Cập', value: permissionStatus, color: permissionColor },
                 { label: 'Ngày Sửa Đổi', value: date ? date.toLocaleString('vi-VN') : 'N/A' },
             ];
 
@@ -794,65 +799,24 @@
         }
 
         /**
-         * Hiện Modal Xác nhận Xóa
+         * Hiện thông báo giới hạn API thay cho chức năng xóa file
          */
-        function showDeleteConfirmModal() {
-            if (!currentFileHandle) {
-                currentVideoInfo.textContent = "🚫 Lỗi: Không có quyền xóa tệp (Chỉ đọc).";
-                return;
-            }
-            document.getElementById('fileNameToDelete').textContent = currentFileName;
-            showModal('deleteConfirmModal');
+        function showApiLimitationMessage() {
+            // Hiển thị thông báo đỏ
+            currentVideoInfo.innerHTML = `<span class="text-red-400 font-bold">⚠️ GIỚI HẠN API:</span> Chức năng xóa bị vô hiệu hóa. Web API (FSSA) hiện tại <span class="text-white">không hỗ trợ xóa tệp</span> chỉ với File Handle (chỉ cho phép xóa qua Directory Handle).`;
+            
+            // Tự động reset tin nhắn sau 5 giây
+            setTimeout(() => {
+                if(currentFileHandle) {
+                    currentVideoInfo.textContent = `✅ Đã cấp quyền chỉnh sửa cho: ${currentFileName}`;
+                } else if (currentFileName) {
+                    currentVideoInfo.textContent = `⚠️ Đã tải file: ${currentFileName} (chế độ chỉ đọc).`;
+                } else {
+                    currentVideoInfo.textContent = 'Sẵn sàng nhận lệnh...';
+                }
+            }, 5000);
         }
         
-        /**
-         * Xóa file (chỉ dùng khi có currentFileHandle)
-         * Cần phải refresh/reload lại app để hoàn tất việc xóa file.
-         */
-        async function deleteFile() {
-            hideModal('deleteConfirmModal');
-            
-            if (!currentFileHandle || !window.queryLocalEntries || !window.removeLocalEntry) {
-                 // Dùng window.queryLocalEntries và window.removeLocalEntry để giả lập/thực hiện chức năng xóa trong môi trường Iframe
-                currentVideoInfo.textContent = "🚫 Lỗi: Chức năng xóa file không được hỗ trợ trong môi trường này (Hoặc thiếu quyền FSSA).";
-                return;
-            }
-            
-            currentVideoInfo.textContent = `Đang xóa tệp ${currentFileName}...`;
-            
-            try {
-                // Tắt video đang chạy
-                videoPlayer.pause();
-                
-                // Giả lập logic xóa file bằng FSSA API (Nếu có)
-                // Trong môi trường Canvas, không có API chuẩn để xóa file. Ta chỉ có thể giả lập.
-                // Thực tế, window.removeLocalEntry là một giả lập trong Canvas, ta gọi nó.
-                // Hàm này sẽ dùng handle để báo hiệu đã xóa
-                const fileToDelete = await currentFileHandle.getFile();
-                
-                // Check if file is really from FSSA
-                if (fileToDelete.name && fileToDelete.name === currentFileName) {
-                     // Thay thế bằng logic API thực tế nếu có
-                    console.log(`[FSSA Mock] Cố gắng XÓA tệp: ${currentFileName}`);
-                    
-                    // Thử gọi window.removeLocalEntry(currentFileHandle);
-                    // Giả định thành công.
-                    
-                    currentVideoInfo.textContent = `✅ Đã xóa tệp ${currentFileName} thành công! Vui lòng khởi động lại ứng dụng.`;
-                    
-                } else {
-                    currentVideoInfo.textContent = "🚫 Lỗi: Không thể xóa tệp, đối tượng handle không hợp lệ.";
-                }
-
-                // Reset giao diện sau khi xóa (hoặc giả lập xóa)
-                resetMediaPlayer(true);
-            } catch (err) {
-                console.error('Lỗi khi xóa tệp:', err);
-                currentVideoInfo.textContent = `❌ Lỗi khi xóa tệp ${currentFileName}: ${err.message}`;
-            }
-        }
-
-
         /**
          * Logic Chia sẻ
          */
@@ -861,6 +825,15 @@
                 currentVideoInfo.textContent = "🚫 Lỗi: Không thể chia sẻ khi đang phát YouTube hoặc chưa tải tệp.";
                 return;
             }
+            
+            // === PHONG'S REQUEST: CHECK PERMISSION ===
+            // Nếu không có File Handle, tức là file đang ở chế độ Chỉ Đọc (do Fallback hoặc Drag&Drop)
+            if (!currentFileHandle) {
+                showModal('permissionRequiredModal');
+                currentVideoInfo.textContent = "⚠️ Chia sẻ bị chặn: Cần quyền Đọc & Ghi để chia sẻ tệp gốc.";
+                return;
+            }
+            // === END PHONG'S REQUEST ===
 
             if (!navigator.share) {
                 currentVideoInfo.textContent = "🚫 Lỗi: Trình duyệt không hỗ trợ chia sẻ native (Web Share API).";
@@ -1036,7 +1009,7 @@
             } else {
                 videoWrapper.requestFullscreen().catch(err => {
                     console.error(`Lỗi Fullscreen: ${err.message} (${err.name})`);
-                    currentVideoInfo.textContent = `🚫 Lỗi: Trình duyệt chặn chế độ toàn màn hình.`;
+                    currentVideoInfo.textContent = `🚫 Lỗi: Trình duyệt chặn chế độ toàn màn màn hình.`;
                 });
             }
         });
