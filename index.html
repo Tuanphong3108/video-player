@@ -12,9 +12,7 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     
     <!-- === PWA MANIFEST & FILE HANDLING === -->
-    <!-- Đồng bộ màu theme với manifest (#1c1b1f) -->
     <meta name="theme-color" content="#1c1b1f"> 
-    <!-- Manifest được liên kết đến file manifest.json riêng biệt, cần thiết cho GitHub Pages và PWA chính thức. -->
     <link rel="manifest" href="manifest.json">
     
     <style>
@@ -65,34 +63,67 @@
             /* Chiều cao được định nghĩa bởi padding-bottom (tỉ lệ), gán từ JS */
             padding-bottom: var(--video-ratio, 56.25%); /* Fallback 16:9 (9/16 * 100) */
             height: 0; /* Đảm bảo padding-bottom xác định chiều cao */
-            max-height: 85vh; /* Giữ giới hạn chiều cao tổng thể trên màn hình */
+            /* QUAN TRỌNG: Giới hạn chiều cao tuyệt đối của box để không vượt quá tầm nhìn, giúp controls không bị cuộn */
+            max-height: calc(100vh - 180px); /* Khoảng 180px cho header, padding và margin */
+            overflow: hidden; 
         }
         /* Video và Controls Overlay nằm tuyệt đối bên trong container giữ tỉ lệ */
-        .aspect-ratio-box video,
+        .aspect-ratio-box video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain; 
+        }
+        /* Controls Overlay cần nằm tuyệt đối và chỉ áp dụng khi custom controls được dùng */
         .aspect-ratio-box #controls-overlay {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            /* Đảm bảo video fill chiều ngang của box tỉ lệ và fit hoàn hảo bên trong */
-            object-fit: contain; 
+            /* Đảm bảo nó không bị ảnh hưởng bởi object-fit: contain của video */
+            display: flex; /* Bắt buộc để căn chỉnh controls xuống dưới */
+            flex-direction: column;
+            justify-content: flex-end;
+            pointer-events: none;
         }
 
+
         /* --- MATERIAL SYMBOLS STYLING --- */
+        /* Đây là CSS chung áp dụng hiệu ứng FILL khi có class 'group' */
         .material-symbols-outlined {
-            /* Set default state: Outline (FILL=0) */
             font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-            transition: font-variation-settings 0.3s ease; /* Smooth transition for the effect */
-            line-height: 1; /* Fix vertical alignment */
+            transition: font-variation-settings 0.3s ease; 
+            line-height: 1; 
             display: inline-block;
         }
         
-        /* Apply FILL=1 (Filled) when the parent button group is hovered */
         .group:hover .material-symbols-outlined,
-        /* Also apply FILL=1 when the button is focused (for keyboard navigation) */
         .group:focus-visible .material-symbols-outlined {
             font-variation-settings: 'FILL' 1, 'wght' 600, 'GRAD' 0, 'opsz' 24;
+        }
+
+        /* --- CUSTOM TOOLTIP STYLING --- */
+        #customTooltip {
+            position: fixed; /* Dùng fixed để nó nổi trên mọi thứ */
+            z-index: 60; /* Cao hơn cả controls-overlay (z-index 50) */
+            padding: 4px 8px;
+            background-color: rgba(43, 43, 43, 0.9); /* Nền tối mờ */
+            color: white;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            pointer-events: none; /* Rất quan trọng: không chặn sự kiện chuột */
+            opacity: 0;
+            transition: opacity 0.2s, transform 0.2s;
+            transform: translateY(10px); /* Bắt đầu hơi thấp */
+            white-space: nowrap;
+        }
+        .tooltip-visible {
+            opacity: 1 !important;
+            transform: translateY(0) !important;
         }
     </style>
     <script>
@@ -115,11 +146,31 @@
 
     <!-- Header -->
     <header class="p-4 bg-gray-800 shadow-lg flex justify-between items-center z-10">
-        <h1 class="text-2xl font-bold text-white">Video Player 🎥</h1>
-        <label for="fileInput" class="cursor-pointer bg-accent hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 transform hover:scale-105">
-            Chọn Video
-        </label>
-        <input type="file" id="fileInput" accept="video/*" class="hidden" onchange="handleFileSelect(event)">
+        <!-- Title and Video Info -->
+        <div class="flex flex-col">
+            <h1 class="text-2xl font-bold text-white">Video Player 🎥</h1>
+            <!-- Vị trí mới cho thông tin video -->
+            <div id="currentVideoInfo" class="text-xs text-gray-400 mt-1">Sẵn sàng nhận lệnh...</div>
+        </div>
+
+        <!-- Right Buttons: Share and Select File -->
+        <div class="flex items-center space-x-3">
+            
+            <!-- Share Button (Mặc định ẩn. Chỉ hiện khi có File Handle) -->
+            <button id="shareBtn" title="Chia sẻ tệp gốc" class="group bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 px-3 rounded-lg shadow-md transition duration-300 transform hover:scale-105 flex items-center space-x-2 hidden">
+                <span class="material-symbols-outlined text-xl">share</span>
+                <span class="hidden sm:inline">Chia sẻ</span>
+            </button>
+            
+            <!-- Nút Chọn Video (Đã thêm class group để fix hover icon) -->
+            <button id="selectFileBtn" title="Chọn video bằng File System Access API" onclick="handleFilePicker()" class="group cursor-pointer bg-accent hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 transform hover:scale-105 flex items-center space-x-2">
+                <span class="material-symbols-outlined text-xl">upload_file</span>
+                <span>Chọn Video</span>
+            </button>
+            
+            <!-- Hidden input for old-school fallback and PWA file launching -->
+            <input type="file" id="fileInputFallback" accept="video/*" class="hidden" onchange="handleFileSelectFallback(event)">
+        </div>
     </header>
 
     <!-- Main Content Area - Video Player takes full width -->
@@ -128,13 +179,14 @@
         <!-- Video Player Area (Container) -->
         <div id="video-container" class="w-full p-4 flex flex-col items-center justify-center bg-background-dark relative flex-grow">
 
-            <!-- Video Wrapper (CẬP NHẬT: Loại bỏ height cố định, dựa vào tỉ lệ video) -->
-            <div id="video-wrapper" class="w-full max-w-5xl rounded-xl shadow-2xl bg-black border border-gray-700 relative overflow-hidden hidden">
-                <!-- Loại bỏ 'controls' mặc định của trình duyệt -->
+            <!-- Video Wrapper (Khung chứa video, dùng để giữ tỉ lệ và áp dụng giới hạn chiều rộng) -->
+            <div id="video-wrapper" class="w-full rounded-xl shadow-2xl bg-black border border-gray-700 relative overflow-hidden hidden max-h-full">
+                <!-- videoPlayer KHÔNG CÓ controls mặc định, được bật/tắt bằng JS -->
                 <video id="videoPlayer"></video>
                 
-                <!-- Custom Controls Overlay (Ẩn đi khi không hoạt động) -->
-                <div id="controls-overlay" class="flex flex-col items-center justify-end transition-opacity duration-300 opacity-0 pointer-events-none p-4">
+                <!-- Custom Controls Overlay -->
+                <!-- Chỉ hiển thị khi video là ngang/vuông. Luôn nằm TUYỆT ĐỐI bên trong wrapper -->
+                <div id="controls-overlay" class="transition-opacity duration-300 opacity-0 pointer-events-none p-4">
                     <div id="customControls" class="w-full bg-gray-900/90 backdrop-blur-sm p-3 rounded-xl shadow-2xl border border-gray-700 flex flex-col pointer-events-auto">
                         
                         <!-- Seek Bar / Progress Bar -->
@@ -170,7 +222,7 @@
                                 
                                 <!-- Speed Control -->
                                 <div class="relative group">
-                                    <button id="speedBtn" class="p-2 text-gray-300 hover:text-white rounded-lg text-sm font-semibold transition duration-150 bg-gray-800/50">
+                                    <button id="speedBtn" title="Tốc độ phát" class="p-2 text-gray-300 hover:text-white rounded-lg text-sm font-semibold transition duration-150 bg-gray-800/50">
                                         1.0x
                                     </button>
                                     <!-- Speed Menu -->
@@ -184,13 +236,13 @@
                                 </button>
 
                                 <!-- Picture-in-Picture Button (Chỉ hiện nếu trình duyệt hỗ trợ) -->
-                                <button id="pipBtn" title="Hình trong hình" class="p-2 text-gray-300 hover:text-white rounded-full transition duration-150 hidden group">
+                                <button id="pipBtn" title="Hình trong hình (PiP)" class="p-2 text-gray-300 hover:text-white rounded-full transition duration-150 hidden group">
                                     <span class="material-symbols-outlined text-xl">picture_in_picture_alt</span>
                                 </button>
                                 
                                 <!-- Volume Control (Hiện Slider khi hover) -->
                                 <div class="flex items-center space-x-2 group relative">
-                                    <!-- Volume Slider -->
+                                    <!-- Volume Slider (không cần tooltip) -->
                                     <input type="range" id="volumeSlider" value="100" min="0" max="100" title="Âm lượng" class="w-20 h-1 appearance-none cursor-pointer bg-gray-700 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 hidden md:block">
                                     <!-- Volume Button -->
                                     <button id="volumeBtn" title="Tắt/Mở tiếng" class="p-2 text-gray-300 hover:text-white rounded-full transition duration-150 group">
@@ -218,9 +270,10 @@
                 <p class="text-sm mt-1">Nhấn "Chọn Video" để bắt đầu.</p>
                 <p class="text-xs mt-3 text-yellow-400">🚨 Để Mở File Trực Tiếp: Cài đặt ứng dụng PWA này qua trình duyệt!</p>
             </div>
-            
-            <div id="currentVideoInfo" class="mt-4 text-sm text-gray-400"></div>
         </div>
+        
+        <!-- CUSTOM TOOLTIP DIV (Dùng position: fixed) -->
+        <div id="customTooltip" class="hidden"></div>
 
     </main>
     
@@ -237,35 +290,19 @@
         const videoWrapper = document.getElementById('video-wrapper');
         const controlsOverlay = document.getElementById('controls-overlay');
         const dragOverlay = document.getElementById('drag-overlay');
+        const shareBtn = document.getElementById('shareBtn'); 
+        const fileInputFallback = document.getElementById('fileInputFallback'); 
+        const customTooltip = document.getElementById('customTooltip'); // Thêm tooltip
 
-        // New Global variables for custom controls
-        const playPauseBtn = document.getElementById('playPauseBtn');
-        const playPauseIcon = document.getElementById('playPauseIcon'); // Material Symbol Span
-        const progressBar = document.getElementById('progressBar');
-        const timeDisplay = document.getElementById('timeDisplay');
-        const volumeBtn = document.getElementById('volumeBtn');
-        const volumeIcon = document.getElementById('volumeIcon'); // Material Symbol Span
-        const volumeSlider = document.getElementById('volumeSlider');
-        const fullscreenBtn = document.getElementById('fullscreenBtn');
-        const fullscreenIcon = document.getElementById('fullscreenIcon'); // Material Symbol Span
-        
-        // New Control elements
-        const skipBackwardBtn = document.getElementById('skipBackwardBtn');
-        const skipForwardBtn = document.getElementById('skipForwardBtn');
-        const speedBtn = document.getElementById('speedBtn');
-        const speedMenu = document.getElementById('speedMenu');
-        const loopBtn = document.getElementById('loopBtn');
-        const pipBtn = document.getElementById('pipBtn');
-
-        let currentFileURL = null; // Chỉ lưu trữ URL của video đang phát
+        // Global State for File System Access API
+        let currentFileURL = null; 
+        let currentFileName = null;
+        let currentFileHandle = null; // Lưu trữ File Handle để chia sẻ file gốc
         let controlsTimeout;
         const defaultPlaybackRate = 1.0;
         
         // --- UTILITY FUNCTIONS ---
 
-        /**
-         * Định dạng thời gian từ giây sang MM:SS.
-         */
         function formatTime(seconds) {
             if (isNaN(seconds) || seconds < 0) return '00:00';
             const minutes = Math.floor(seconds / 60);
@@ -275,16 +312,14 @@
             return `${paddedMinutes}:${paddedSeconds}`;
         }
 
-        /**
-         * Hiển thị Controls Overlay và thiết lập hẹn giờ ẩn.
-         */
         function showControls() {
-            if (videoWrapper.classList.contains('hidden')) return;
+            // Chỉ hiển thị controls nếu chúng không bị ẩn (vì đang dùng native controls)
+            if (controlsOverlay.classList.contains('hidden')) return;
             
+            if (videoWrapper.classList.contains('hidden')) return;
             controlsOverlay.classList.remove('opacity-0');
             clearTimeout(controlsTimeout);
             
-            // Ẩn controls sau 3 giây nếu video đang phát
             if (!videoPlayer.paused) {
                 controlsTimeout = setTimeout(() => {
                     controlsOverlay.classList.add('opacity-0');
@@ -292,55 +327,114 @@
             }
         }
 
-        /**
-         * Ẩn Controls Overlay.
-         */
         function hideControls() {
+            if (controlsOverlay.classList.contains('hidden')) return;
             clearTimeout(controlsTimeout);
             controlsOverlay.classList.add('opacity-0');
+        }
+
+        /**
+         * Cập nhật trạng thái nút Chia sẻ dựa trên File Handle.
+         */
+        function updateShareButtonState() {
+            // Nút Share chỉ hiện khi có File Handle (đã xin quyền chỉnh sửa)
+            if (currentFileHandle) {
+                shareBtn.classList.remove('hidden');
+                shareBtn.title = "Chia sẻ tệp gốc (Yêu cầu quyền chỉnh sửa)";
+            } else {
+                shareBtn.classList.add('hidden');
+            }
         }
 
         // --- CORE APPLICATION LOGIC ---
 
         /**
          * Tải và bắt đầu phát video từ File object.
+         * @param {File} file - Đối tượng File
          */
         function loadVideoFromFile(file) {
-            // Thu hồi URL cũ để tránh rò rỉ bộ nhớ
             if (currentFileURL) {
                 URL.revokeObjectURL(currentFileURL);
             }
 
             const objectURL = URL.createObjectURL(file);
             currentFileURL = objectURL;
+            currentFileName = file.name;
             videoPlayer.src = currentFileURL;
             videoPlayer.load();
 
-            // Reset tốc độ phát về mặc định
+            // Reset tốc độ phát và cập nhật giao diện
             videoPlayer.playbackRate = defaultPlaybackRate;
-            speedBtn.textContent = `${defaultPlaybackRate.toFixed(1)}x`;
+            document.getElementById('speedBtn').textContent = `${defaultPlaybackRate.toFixed(1)}x`;
 
             // Cập nhật giao diện: Ẩn placeholder, hiện video wrapper
             placeholder.classList.add('hidden');
             videoWrapper.classList.remove('hidden');
-            
-            // Thêm class Aspect Ratio Box để container tự động chỉnh tỉ lệ
             videoWrapper.classList.add('aspect-ratio-box');
             
-            // Hiện controls khi video được tải
-            showControls(); 
-
             videoPlayer.play().catch(e => {
                 console.warn("Lỗi tự động phát: " + e.message);
+                // CHỈ CẬP NHẬT TRẠNG THÁI VÀ TÊN FILE (ĐÃ XÓA THỜI GIAN)
                 currentVideoInfo.textContent = `▶️ Đã tải: ${file.name}. Vui lòng nhấn nút Play.`;
                 showControls();
             });
             
-            currentVideoInfo.textContent = `Đang phát: ${file.name}`;
-            
-            // Cập nhật trạng thái PiP
-            if ('pictureInPictureEnabled' in document && document.pictureInPictureEnabled) {
-                pipBtn.classList.remove('hidden');
+            // QUAN TRỌNG: Cập nhật trạng thái nút Share sau khi video load
+            updateShareButtonState();
+        }
+        
+        // --- FILE PICKER & FALLBACK LOGIC ---
+
+        /**
+         * Xử lý file bằng File System Access API (yêu cầu quyền chỉnh sửa).
+         */
+        async function handleFilePicker() {
+            // Fallback Level 1: Trình duyệt không hỗ trợ FSSA
+            if (!window.showOpenFilePicker) {
+                currentVideoInfo.textContent = 'Trình duyệt không hỗ trợ FSSA. Mở hộp thoại file truyền thống...';
+                fileInputFallback.click(); 
+                return;
+            }
+
+            try {
+                const [fileHandle] = await window.showOpenFilePicker({
+                    types: [{
+                        description: 'Video Files',
+                        accept: { 'video/*': ['.mp4', '.mov', '.webm', '.mkv', '.ogg', '.avi'] }
+                    }],
+                    multiple: false,
+                    mode: 'readwrite' 
+                });
+
+                currentFileHandle = fileHandle; 
+                const file = await fileHandle.getFile();
+                loadVideoFromFile(file);
+                // CHỈ CẬP NHẬT TRẠNG THÁI VÀ TÊN FILE (ĐÃ XÓA THỜI GIAN)
+                currentVideoInfo.textContent = `✅ Đã cấp quyền chỉnh sửa cho: ${file.name}`;
+
+            } catch (err) {
+                if (err.name === 'AbortError') {
+                    // Người dùng chủ động hủy (họ không muốn chọn file nữa)
+                    currentVideoInfo.textContent = 'Chọn tệp bị hủy.';
+                } else {
+                    // Lỗi bất ngờ (không phải do hủy hoặc lỗi quyền) -> Fallback Level 2
+                    console.error('Lỗi File System Access API:', err);
+                    currentFileHandle = null; 
+                    currentVideoInfo.textContent = '❌ Lỗi FSSA. Đang chuyển sang chọn file truyền thống...';
+                    fileInputFallback.click(); // Kích hoạt chọn file truyền thống
+                }
+                updateShareButtonState(); // Đảm bảo nút share ẩn nếu có lỗi
+            }
+        }
+
+        /**
+         * Fallback cho input[type=file] (chỉ quyền đọc)
+         */
+        function handleFileSelectFallback(event) {
+            const files = event.target.files;
+            if (files.length > 0) {
+                currentFileHandle = null; // Luôn reset khi dùng Fallback
+                loadVideoFromFile(files[0]);
             }
         }
         
@@ -351,60 +445,100 @@
             dragOverlay.classList.add('opacity-0');
             
             const files = e.dataTransfer.files;
-            
-            // Chỉ chấp nhận file video đầu tiên
             const videoFile = Array.from(files).find(file => file.type.startsWith('video/'));
 
             if (videoFile) {
+                // Drag & Drop KHÔNG CẤP File Handle (chỉ quyền đọc)
+                currentFileHandle = null; 
                 loadVideoFromFile(videoFile);
             } else {
                 currentVideoInfo.textContent = "❌ Lỗi: Vui lòng thả một file video hợp lệ.";
+                updateShareButtonState();
             }
         }
         
-        // Visual feedback cho Drag & Drop
         document.body.addEventListener('dragover', (e) => {
             e.preventDefault();
             dragOverlay.classList.remove('opacity-0');
         });
 
-        document.body.addEventListener('dragleave', (e) => {
-            // Chỉ ẩn nếu không di chuột vào bất kỳ phần tử con nào khác
-            if (e.clientX === 0 && e.clientY === 0) {
-                 dragOverlay.classList.add('opacity-0');
-            }
+        document.body.addEventListener('dragleave', () => {
+             dragOverlay.classList.add('opacity-0');
         });
         
         document.body.addEventListener('drop', handleFileDrop);
 
-        // Xử lý từ nút Chọn File
-        function handleFileSelect(event) {
-            const files = event.target.files;
-            if (files.length > 0) {
-                loadVideoFromFile(files[0]);
+        // --- SHARE LOGIC (Giữ nguyên) ---
+        async function handleShare() {
+            if (!navigator.share) {
+                currentVideoInfo.textContent = "🚫 Lỗi: Trình duyệt không hỗ trợ chia sẻ native (Web Share API).";
+                return;
+            }
+
+            // 1. Cố gắng chia sẻ TỆP GỐC nếu có File Handle (có quyền chỉnh sửa)
+            if (currentFileHandle) {
+                try {
+                    const fileToShare = await currentFileHandle.getFile();
+                    const shareData = {
+                        title: `Video: ${fileToShare.name}`,
+                        text: `Gửi tệp video ${fileToShare.name} (Kích thước: ${Math.round(fileToShare.size / 1024 / 1024)}MB) từ PWA Video Player.`,
+                        files: [fileToShare],
+                    };
+
+                    if (navigator.canShare(shareData)) {
+                        await navigator.share(shareData);
+                        console.log('Chia sẻ tệp thành công!');
+                        currentVideoInfo.textContent = `🔗 Đã chia sẻ tệp ${fileToShare.name} thành công!`;
+                        return; 
+                    }
+                    console.warn("Chia sẻ files không được hỗ trợ, fallback xuống chia sẻ link.");
+                } catch (err) {
+                    console.error('Lỗi khi chia sẻ tệp:', err);
+                }
+            }
+            
+            // 2. Fallback: Chia sẻ link ứng dụng PWA
+            const shareDataFallback = {
+                title: 'Video Player PWA',
+                text: currentFileName ? `Xem "${currentFileName}" bằng PWA Video Player của tôi. Hãy cài đặt ứng dụng này để mở file local!` : 'Hãy cài đặt ứng dụng PWA Video Player này để mở và phát video local một cách chuyên nghiệp!',
+                url: location.href, 
+            };
+
+            try {
+                await navigator.share(shareDataFallback);
+                currentVideoInfo.textContent = `🔗 Đã chia sẻ link ${currentFileName ? currentFileName : 'ứng dụng'} thành công!`;
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    console.error('Lỗi khi chia sẻ fallback:', err);
+                    currentVideoInfo.textContent = '❌ Lỗi chia sẻ. Vui lòng thử lại.';
+                }
             }
         }
-
-        // --- CUSTOM CONTROLS LOGIC ---
+        shareBtn.addEventListener('click', handleShare);
         
-        // 1. Skip Forward/Backward
+        // --- CUSTOM CONTROLS LOGIC (Chỉ chạy khi dùng Custom Controls) ---
+        
         function skip(seconds) {
             if (!videoPlayer.src) return;
-            videoPlayer.currentTime += seconds;
-            showControls();
+            // Chỉ show controls custom nếu chúng đang hoạt động
+            if (!videoPlayer.controls) {
+                videoPlayer.currentTime += seconds;
+                showControls();
+            } else {
+                videoPlayer.currentTime += seconds;
+            }
         }
-        skipBackwardBtn.addEventListener('click', () => skip(-10));
-        skipForwardBtn.addEventListener('click', () => skip(10));
+        document.getElementById('skipBackwardBtn').addEventListener('click', () => skip(-10));
+        document.getElementById('skipForwardBtn').addEventListener('click', () => skip(10));
         
-        // 2. Playback Speed
         const speedRates = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
 
         function setPlaybackSpeed(speed) {
+            if (videoPlayer.controls) return; // Nếu dùng native controls thì bỏ qua
             videoPlayer.playbackRate = speed;
-            speedBtn.textContent = `${speed.toFixed(2).replace(/\.00$/, '.0')}x`;
-            speedMenu.classList.add('hidden');
-            // Cập nhật trạng thái menu: xóa active cũ, thêm active mới
-            Array.from(speedMenu.children).forEach(item => {
+            document.getElementById('speedBtn').textContent = `${speed.toFixed(2).replace(/\.00$/, '.0')}x`;
+            document.getElementById('speedMenu').classList.add('hidden');
+            Array.from(document.getElementById('speedMenu').children).forEach(item => {
                 if (parseFloat(item.dataset.speed) === speed) {
                     item.classList.add('bg-accent', 'text-white');
                     item.classList.remove('hover:bg-gray-700', 'text-gray-300');
@@ -417,6 +551,7 @@
         }
 
         function setupSpeedMenu() {
+            const speedMenu = document.getElementById('speedMenu');
             speedRates.forEach(rate => {
                 const item = document.createElement('div');
                 item.className = 'p-2 text-sm text-gray-300 cursor-pointer transition duration-100 text-center';
@@ -424,7 +559,6 @@
                 item.dataset.speed = rate;
                 item.onclick = () => setPlaybackSpeed(rate);
 
-                // Khởi tạo trạng thái active cho 1.0x
                 if (rate === 1.0) {
                     item.classList.add('bg-accent', 'text-white');
                 } else {
@@ -433,47 +567,48 @@
                 speedMenu.appendChild(item);
             });
             
-            speedBtn.addEventListener('click', (e) => {
-                e.stopPropagation(); // Ngăn click lan ra ngoài
+            document.getElementById('speedBtn').addEventListener('click', (e) => {
+                e.stopPropagation(); 
+                if (videoPlayer.controls) return; // Không hiển thị nếu dùng native controls
                 speedMenu.classList.toggle('hidden');
                 showControls();
             });
 
-            // Ẩn menu khi click ra ngoài
             document.addEventListener('click', (e) => {
-                if (!speedBtn.contains(e.target) && !speedMenu.contains(e.target)) {
+                if (!document.getElementById('speedBtn').contains(e.target) && !speedMenu.contains(e.target)) {
                     speedMenu.classList.add('hidden');
                 }
             });
         }
         
-        // 3. Loop Toggle
         function toggleLoop() {
+            if (videoPlayer.controls) return; // Nếu dùng native controls thì bỏ qua
             videoPlayer.loop = !videoPlayer.loop;
+            const loopBtn = document.getElementById('loopBtn');
             const loopIcon = loopBtn.querySelector('.material-symbols-outlined');
             
             if (videoPlayer.loop) {
                 loopBtn.classList.add('text-accent', 'ring-2', 'ring-accent');
                 loopBtn.classList.remove('text-gray-500');
-                loopIcon.style.fontVariationSettings = "'FILL' 1, 'wght' 600, 'GRAD' 0, 'opsz' 24"; // Force Fill
+                loopIcon.style.fontVariationSettings = "'FILL' 1, 'wght' 600, 'GRAD' 0, 'opsz' 24"; 
                 currentVideoInfo.textContent = `🔁 Bật chế độ Lặp lại.`;
             } else {
                 loopBtn.classList.remove('text-accent', 'ring-2', 'ring-accent');
                 loopBtn.classList.add('text-gray-500');
-                loopIcon.style.fontVariationSettings = "initial"; // Reset to default (Outline)
+                loopIcon.style.fontVariationSettings = "initial"; 
                 currentVideoInfo.textContent = `🔂 Tắt chế độ Lặp lại.`;
             }
             showControls();
         }
-        loopBtn.addEventListener('click', toggleLoop);
+        document.getElementById('loopBtn').addEventListener('click', toggleLoop);
         
-        // 4. Picture-in-Picture (PiP)
-        pipBtn.addEventListener('click', () => {
+        document.getElementById('pipBtn').addEventListener('click', () => {
              if (!videoPlayer.src) return;
              togglePiP();
         });
         
         function togglePiP() {
+            if (!videoPlayer.src) return;
             if (!document.pictureInPictureElement) {
                 videoPlayer.requestPictureInPicture().catch(err => {
                     console.error("Lỗi PiP: ", err);
@@ -487,8 +622,7 @@
             showControls();
         }
         
-        // 5. Fullscreen
-        fullscreenBtn.addEventListener('click', () => {
+        document.getElementById('fullscreenBtn').addEventListener('click', () => {
             if (!videoPlayer.src) return;
             if (document.fullscreenElement) {
                 document.exitFullscreen();
@@ -500,86 +634,9 @@
             }
         });
         
-        // --- EVENT LISTENERS (UPDATE MATERIAL SYMBOLS) ---
-
-        // Controls visibility
-        videoWrapper.addEventListener('mousemove', showControls);
-        videoWrapper.addEventListener('mouseenter', showControls);
-        videoWrapper.addEventListener('mouseleave', () => {
-            if (!videoPlayer.paused) {
-                hideControls();
-            }
-        });
-        
-        // Play/Pause Toggle
-        function togglePlayPause() {
-            if (!videoPlayer.src) return;
-            if (videoPlayer.paused || videoPlayer.ended) {
-                videoPlayer.play().catch(e => console.error("Lỗi Play: ", e));
-            } else {
-                videoPlayer.pause();
-            }
-        }
-        playPauseBtn.addEventListener('click', togglePlayPause);
-        videoPlayer.addEventListener('click', (event) => {
-            // Ngăn toggle play/pause khi click vào controls
-            if (event.target.closest('#customControls')) { return; }
-            togglePlayPause();
-        });
-
-        // Icon updates
-        videoPlayer.addEventListener('play', () => {
-            playPauseIcon.textContent = 'pause'; // Pause icon
-            setTimeout(hideControls, 1000); 
-        });
-        videoPlayer.addEventListener('pause', () => {
-            playPauseIcon.textContent = 'play_arrow'; // Play icon
-            showControls();
-        });
-        
-        // Fullscreen Icon update
-        document.addEventListener('fullscreenchange', () => {
-            if (document.fullscreenElement) {
-                fullscreenIcon.textContent = 'fullscreen_exit';
-            } else {
-                fullscreenIcon.textContent = 'fullscreen';
-            }
-        });
-        
-        // Time and Progress Bar Update (Giữ nguyên)
-        videoPlayer.addEventListener('loadedmetadata', () => {
-            // --- ASPECT RATIO FIX LOGIC START ---
-            // Tính toán tỉ lệ chiều cao/chiều rộng (height / width)
-            const ratio = videoPlayer.videoHeight / videoPlayer.videoWidth;
-            // Tính padding-bottom percentage (Ratio * 100)
-            const paddingBottom = ratio * 100; 
-            // Áp dụng vào CSS Variable để container tự điều chỉnh kích thước
-            videoWrapper.style.setProperty('--video-ratio', `${paddingBottom}%`);
-            console.log(`Video Aspect Ratio: ${videoPlayer.videoWidth}x${videoPlayer.videoHeight}. CSS Ratio: ${paddingBottom.toFixed(2)}%`);
-            // --- ASPECT RATIO FIX LOGIC END ---
-
-            progressBar.max = videoPlayer.duration;
-            timeDisplay.textContent = `${formatTime(0)} / ${formatTime(videoPlayer.duration)}`;
-            volumeSlider.value = videoPlayer.volume * 100;
-            updateVolumeIcon(videoPlayer.volume, videoPlayer.muted);
-        });
-
-        videoPlayer.addEventListener('timeupdate', () => {
-            if (document.activeElement !== progressBar) {
-                progressBar.value = videoPlayer.currentTime;
-            }
-            timeDisplay.textContent = `${formatTime(videoPlayer.currentTime)} / ${formatTime(videoPlayer.duration)}`;
-        });
-
-        progressBar.addEventListener('input', () => {
-            if (!isNaN(videoPlayer.duration) && videoPlayer.duration > 0) {
-                videoPlayer.currentTime = progressBar.value;
-            }
-            showControls(); 
-        });
-        
-        // Volume Control (UPDATE Material Symbols Logic)
+        // Volume Control
         function updateVolumeIcon(volume, isMuted) {
+            const volumeIcon = document.getElementById('volumeIcon');
             let iconName = 'volume_up';
             if (isMuted || volume === 0) {
                 iconName = 'volume_off';
@@ -591,25 +648,205 @@
             volumeIcon.textContent = iconName;
         }
 
-        volumeSlider.addEventListener('input', () => {
+        document.getElementById('volumeSlider').addEventListener('input', () => {
+            const volumeSlider = document.getElementById('volumeSlider');
             const volume = volumeSlider.value / 100;
             videoPlayer.volume = volume;
             videoPlayer.muted = false;
             updateVolumeIcon(volume, videoPlayer.muted);
         });
 
-        volumeBtn.addEventListener('click', () => {
+        document.getElementById('volumeBtn').addEventListener('click', () => {
             videoPlayer.muted = !videoPlayer.muted;
             updateVolumeIcon(videoPlayer.volume, videoPlayer.muted);
             if (!videoPlayer.muted && videoPlayer.volume === 0) {
                 videoPlayer.volume = 0.5;
-                volumeSlider.value = 50;
+                document.getElementById('volumeSlider').value = 50;
                 updateVolumeIcon(videoPlayer.volume, videoPlayer.muted);
             }
         });
+
+        // Play/Pause Toggle
+        function togglePlayPause() {
+            if (!videoPlayer.src) return;
+            if (videoPlayer.paused || videoPlayer.ended) {
+                videoPlayer.play().catch(e => console.error("Lỗi Play: ", e));
+            } else {
+                videoPlayer.pause();
+            }
+        }
+        document.getElementById('playPauseBtn').addEventListener('click', togglePlayPause);
+        videoPlayer.addEventListener('click', (event) => {
+            // Không can thiệp nếu đang dùng native controls
+            if (videoPlayer.controls) return;
+            // Ngăn chặn click vào custom controls kích hoạt pause
+            if (event.target.closest('#customControls')) { return; }
+            togglePlayPause();
+        });
+
+        // --- TOOLTIP LOGIC MỚI ---
+        function showTooltip(element) {
+            // Nếu đang dùng native controls thì không hiển thị tooltip custom
+            if (videoPlayer.controls) return; 
+
+            const title = element.title;
+            if (!title) return; // Không có title thì thôi
+
+            customTooltip.textContent = title;
+            customTooltip.classList.remove('hidden');
+            
+            // Lấy vị trí của nút
+            const rect = element.getBoundingClientRect();
+            
+            // Tính toán vị trí của tooltip (căn giữa theo chiều ngang của nút, nằm trên nút)
+            const tooltipX = rect.left + (rect.width / 2);
+            const tooltipY = rect.top - 10; // Cách nút 10px
+
+            // Set vị trí (dùng style.left/top)
+            customTooltip.style.left = `${tooltipX}px`;
+            customTooltip.style.top = `${tooltipY}px`;
+            
+            // Căn chỉnh tâm của tooltip
+            // Dùng requestAnimationFrame để đảm bảo đã render xong text và có width chính xác
+            requestAnimationFrame(() => {
+                const tooltipWidth = customTooltip.offsetWidth;
+                customTooltip.style.transform = `translateX(-${tooltipWidth / 2}px) translateY(0)`;
+                customTooltip.classList.add('tooltip-visible');
+            });
+        }
+
+        function hideTooltip() {
+            customTooltip.classList.remove('tooltip-visible');
+            // Ẩn sau transition để tránh nhấp nháy
+            setTimeout(() => {
+                customTooltip.classList.add('hidden');
+                customTooltip.style.transform = 'translateY(10px)';
+            }, 200);
+        }
+
+        function setupTooltips() {
+            // Lấy tất cả các nút bên trong customControls có thuộc tính title
+            const buttons = document.querySelectorAll('#customControls button[title], #speedBtn[title]');
+            
+            buttons.forEach(button => {
+                // Đảm bảo không gắn sự kiện cho nút speedMenu vì nó không phải nút điều khiển chính
+                if (button.id === 'speedMenu') return;
+
+                button.addEventListener('mouseenter', () => showTooltip(button));
+                button.addEventListener('mouseleave', hideTooltip);
+            });
+
+            // Nếu rê chuột ra khỏi khu vực controls thì ẩn tooltip
+            controlsOverlay.addEventListener('mouseleave', hideTooltip);
+        }
+        // --- END TOOLTIP LOGIC MỚI ---
+
+
+        // --- EVENT LISTENERS ---
+
+        // Controls visibility (Chỉ chạy khi custom controls đang hoạt động)
+        videoWrapper.addEventListener('mousemove', () => { if (!videoPlayer.controls) showControls(); });
+        videoWrapper.addEventListener('mouseenter', () => { if (!videoPlayer.controls) showControls(); });
+        videoWrapper.addEventListener('mouseleave', () => {
+            if (!videoPlayer.controls && !videoPlayer.paused) {
+                hideControls();
+            }
+        });
         
-        // Khởi tạo menu tốc độ
+        // Icon updates
+        videoPlayer.addEventListener('play', () => {
+            if (!videoPlayer.controls) {
+                document.getElementById('playPauseIcon').textContent = 'pause'; 
+                setTimeout(hideControls, 1000); 
+            }
+        });
+        videoPlayer.addEventListener('pause', () => {
+            if (!videoPlayer.controls) {
+                document.getElementById('playPauseIcon').textContent = 'play_arrow'; 
+                showControls();
+            }
+        });
+        
+        // Fullscreen Icon update
+        document.addEventListener('fullscreenchange', () => {
+            if (document.fullscreenElement) {
+                document.getElementById('fullscreenIcon').textContent = 'fullscreen_exit';
+            } else {
+                document.getElementById('fullscreenIcon').textContent = 'fullscreen';
+            }
+        });
+        
+        // Time and Progress Bar Update (Áp dụng cho cả 2 chế độ)
+        videoPlayer.addEventListener('loadedmetadata', () => {
+            const ratio = videoPlayer.videoHeight / videoPlayer.videoWidth;
+            const paddingBottom = ratio * 100; 
+            videoWrapper.style.setProperty('--video-ratio', `${paddingBottom}%`);
+
+            const progressBar = document.getElementById('progressBar');
+            const timeDisplay = document.getElementById('timeDisplay');
+            progressBar.max = videoPlayer.duration;
+            
+            let statusText = ''; // Biến để lưu trạng thái format
+
+            // 1. Reset tất cả max-w classes và Controls
+            videoWrapper.classList.remove('max-w-5xl', 'max-w-xs', 'md:max-w-sm'); 
+            videoPlayer.controls = false; // Tắt mặc định
+            controlsOverlay.classList.remove('hidden'); // Mở custom controls mặc định
+
+            if (videoPlayer.videoHeight > videoPlayer.videoWidth) {
+                // Video Dọc (Portrait) -> Dùng Native Controls
+                videoWrapper.classList.add('max-w-xs', 'md:max-w-sm'); 
+                statusText = ' (Dọc)'; // Dùng để hiển thị trong header nếu cần
+                
+                // === BẬT NATIVE CONTROLS VÀ ẨN CUSTOM CONTROLS ===
+                videoPlayer.controls = true;
+                controlsOverlay.classList.add('hidden'); 
+            } else {
+                // Video Ngang hoặc Vuông (Landscape/Square) -> Dùng Custom Controls
+                videoWrapper.classList.add('max-w-5xl');
+                statusText = ' (Ngang/Vuông)'; // Dùng để hiển thị trong header nếu cần
+                
+                // === TẮT NATIVE CONTROLS VÀ HIỂN THỊ CUSTOM CONTROLS ===
+                videoPlayer.controls = false;
+                controlsOverlay.classList.remove('hidden');
+            }
+            
+            // Cập nhật #timeDisplay (BỎ CHỮ CUSTOM CONTROLS)
+            timeDisplay.textContent = `${formatTime(0)} / ${formatTime(videoPlayer.duration)}`;
+            
+            // Cập nhật #currentVideoInfo (BỎ THỜI GIAN VÀ CHỮ FORMAT)
+            currentVideoInfo.textContent = `Đang phát: ${currentFileName || 'Video'}`;
+            // --------------------------------------------------------
+            
+            document.getElementById('volumeSlider').value = videoPlayer.volume * 100;
+            updateVolumeIcon(videoPlayer.volume, videoPlayer.muted);
+        });
+
+        videoPlayer.addEventListener('timeupdate', () => {
+            // Chỉ cập nhật progress bar nếu đang dùng custom controls
+            if (!videoPlayer.controls) {
+                const progressBar = document.getElementById('progressBar');
+                const timeDisplay = document.getElementById('timeDisplay');
+                if (document.activeElement !== progressBar) {
+                    progressBar.value = videoPlayer.currentTime;
+                }
+                
+                // Cập nhật thời gian hiển thị (CHỈ HIỂN THỊ THỜI GIAN)
+                timeDisplay.textContent = `${formatTime(videoPlayer.currentTime)} / ${formatTime(videoPlayer.duration)}`;
+            }
+        });
+
+        document.getElementById('progressBar').addEventListener('input', () => {
+            if (!videoPlayer.controls && !isNaN(videoPlayer.duration) && videoPlayer.duration > 0) {
+                videoPlayer.currentTime = document.getElementById('progressBar').value;
+            }
+            showControls(); 
+        });
+        
+        
+        // Khởi tạo menu tốc độ và Tooltips
         setupSpeedMenu();
+        setupTooltips();
 
         // Đảm bảo rằng URL object bị thu hồi khi trang bị đóng
         window.addEventListener('beforeunload', () => {
@@ -618,38 +855,56 @@
             }
         });
         
-        // --- PWA FILE HANDLING LOGIC ---
-        // Xử lý file được truyền vào khi ứng dụng được mở bằng cách nhấn đúp vào file video.
+        // --- PWA LAUNCHQUEUE LOGIC (Giữ nguyên) ---
         if ('launchQueue' in window) {
-            console.log('[File Handler] API supported. Setting consumer...');
+            console.log('[File Handler] API supported. Setting consumer... (PWA)');
             window.launchQueue.setConsumer(async (launchParams) => {
-                // Kiểm tra xem có file nào được truyền vào không
                 if (launchParams.files && launchParams.files.length > 0) {
                     console.log('[File Handler] File(s) received.');
                     
-                    // Lấy handle của file đầu tiên
                     const fileHandle = launchParams.files[0];
                     
                     try {
-                        // Lấy đối tượng File thực sự
+                        // Cố gắng xin quyền readwrite
+                        const permissionStatus = await fileHandle.queryPermission({ mode: 'readwrite' });
+                        if (permissionStatus !== 'granted') {
+                             await fileHandle.requestPermission({ mode: 'readwrite' });
+                        }
+
+                        currentFileHandle = fileHandle; // Lưu File Handle
                         const file = await fileHandle.getFile();
                         
-                        // Tải và phát video
                         loadVideoFromFile(file);
+                        // CHỈ CẬP NHẬT TRẠNG THÁI VÀ TÊN FILE
                         currentVideoInfo.textContent = `🎬 Đang mở file qua desktop: ${file.name}`;
                     } catch (error) {
                         console.error('Lỗi khi truy cập File Handle:', error);
-                        currentVideoInfo.textContent = '🚫 Lỗi khi cố gắng mở file.';
+                        // Nếu OS mở file nhưng không cấp quyền, ta vẫn có file obj để load
+                        try {
+                            const file = await fileHandle.getFile();
+                            currentFileHandle = null; // Vẫn load nhưng không có quyền Share/Write
+                            loadVideoFromFile(file);
+                            // CHỈ CẬP NHẬT TRẠNG THÁI VÀ TÊN FILE
+                            currentVideoInfo.textContent = `⚠️ Mở file thành công: ${file.name}`;
+                        } catch (readError) {
+                            console.error('Lỗi khi đọc file sau khi thất bại readwrite:', readError);
+                            currentFileHandle = null;
+                            currentVideoInfo.textContent = '🚫 Lỗi khi cố gắng mở file.';
+                        }
                     }
+                    updateShareButtonState(); // Cập nhật trạng thái Share button
                 } else {
                     console.log('[File Handler] App launched without files.');
+                    currentFileHandle = null; // Reset
+                    updateShareButtonState(); // Cập nhật trạng thái Share button
+                    currentVideoInfo.textContent = 'Ứng dụng đã khởi động. Kéo & Thả video để phát!';
                 }
             });
         } else {
             console.log('[File Handler] API not supported or PWA not installed.');
         }
 
-        // --- SERVICE WORKER REGISTRATION (Đăng ký Sư Phụ) ---
+        // --- SERVICE WORKER REGISTRATION (Giữ nguyên) ---
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/sw.js')
@@ -657,25 +912,6 @@
                     .catch(err => console.error('Service Worker: Đăng ký thất bại:', err));
             });
         }
-  <script>
-    // Redirect /open-file về /
-    if (location.pathname === '/open-file') {
-      console.log('[PWA] Redirecting /open-file to / ...');
-      history.replaceState({}, '', '/');
-    }
-
-    // Xử lý file mở qua menu \"Open with...\"
-    if ('launchQueue' in window) {
-      console.log('[File Handler] API supported. Setting consumer...');
-      window.launchQueue.setConsumer(async (launchParams) => {
-        if (!launchParams.files || launchParams.files.length === 0) return;
-        for (const fileHandle of launchParams.files) {
-          const file = await fileHandle.getFile();
-          console.log('[File Handler] File received:', file.name);
-          if (typeof loadVideoFromFile === 'function') loadVideoFromFile(file);
-        }
-      });
-    }
-  </script>
+    </script>
 </body>
 </html>
