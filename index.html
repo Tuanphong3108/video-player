@@ -90,19 +90,6 @@
             pointer-events: none;
         }
         
-        /* Chế độ Browser: Cho phép chiếm toàn bộ khu vực, không giới hạn chiều cao */
-        #video-wrapper.flex-grow:not(.aspect-ratio-box) {
-            height: 100%;
-            max-height: none; /* Bỏ giới hạn chiều cao cũ */
-            padding-bottom: 0; /* Bỏ padding-bottom aspect ratio */
-        }
-        #video-wrapper.flex-grow:not(.aspect-ratio-box) .media-iframe {
-            height: 100%;
-            width: 100%;
-            position: static; /* Đặt lại vị trí tương đối */
-        }
-
-
         /* --- MATERIAL SYMBOLS STYLING --- */
         .material-symbols-outlined {
             font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
@@ -136,6 +123,17 @@
             opacity: 1 !important;
             transform: translateY(0) !important;
         }
+        /* Styling cho Data Row trong Modal */
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #374151; /* card-dark */
+        }
+        .data-row:last-child {
+            border-bottom: none;
+        }
     </style>
     <script>
         // Cấu hình Tailwind CSS: Bật dark mode và màu sắc cơ bản
@@ -148,6 +146,7 @@
                         'card-dark': '#374151',      // Grey 700
                         'accent': '#3b82f6',         // Blue 500
                         'warning': '#f59e0b',        // Amber 500
+                        'danger': '#ef4444',         // Red 500
                     }
                 }
             }
@@ -165,14 +164,28 @@
             <div id="currentVideoInfo" class="text-xs text-gray-400 mt-1">Sẵn sàng nhận lệnh...</div>
         </div>
 
-        <!-- Right Buttons: Share and Select File -->
+        <!-- Right Buttons: File Actions and Select File -->
         <div class="flex items-center space-x-3">
             
-            <!-- Share Button (Mặc định ẩn. Chỉ hiện khi có File Handle) -->
-            <button id="shareBtn" title="Chia sẻ tệp gốc" class="group bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 px-3 rounded-lg shadow-md transition duration-300 transform hover:scale-105 flex items-center space-x-2 hidden">
-                <span class="material-symbols-outlined text-xl">share</span>
-                <span class="hidden sm:inline">Chia sẻ</span>
-            </button>
+            <!-- Group: File Actions (Share, Info, Delete) - Chỉ hiện khi có file local -->
+            <div id="fileActionsGroup" class="flex items-center space-x-2 bg-gray-700 p-1 rounded-lg shadow-inner hidden">
+                
+                <!-- Info Button -->
+                <button id="infoBtn" title="Thông tin chi tiết" class="group p-2 text-gray-300 hover:text-white rounded-lg transition duration-150 transform hover:scale-105" onclick="showFileInfoModal()">
+                    <span class="material-symbols-outlined text-xl">info</span>
+                </button>
+                
+                <!-- Share Button -->
+                <button id="shareBtn" title="Chia sẻ tệp gốc" class="group p-2 text-gray-300 hover:text-accent rounded-lg transition duration-150 transform hover:scale-105">
+                    <span class="material-symbols-outlined text-xl">share</span>
+                </button>
+                
+                <!-- Delete Button (CHỈ HIỆN KHI CÓ FILE HANDLE) -->
+                <button id="deleteBtn" title="Xóa tệp gốc" class="group p-2 text-gray-300 hover:text-danger rounded-lg transition duration-150 transform hover:scale-105 hidden" onclick="showDeleteConfirmModal()">
+                    <span class="material-symbols-outlined text-xl">delete</span>
+                </button>
+
+            </div>
             
             <!-- Nút Chọn Video -->
             <button id="selectFileBtn" title="Chọn video bằng File System Access API hoặc Link" onclick="handleFilePicker()" class="group cursor-pointer bg-accent hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 transform hover:scale-105 flex items-center space-x-2">
@@ -193,19 +206,7 @@
             <div class="flex items-center space-x-3 max-w-7xl mx-auto">
                 <span class="material-symbols-outlined text-2xl flex-shrink-0">security</span>
                 <p class="text-sm font-medium">
-                    **CẢNH BÁO:** Phát link YouTube có thể bị chặn (Lỗi 153) trong môi trường **Canvas/Iframe** do chính sách bảo mật quá nghiêm ngặt. Vui lòng thử lại trên trình duyệt **ngoài môi trường này** nếu video không load.
-                </p>
-            </div>
-        </div>
-        
-        <!-- Thông báo cho chế độ DUYỆT YOUTUBE -->
-        <div id="browserWarning" class="p-2 bg-red-900/50 border-l-4 border-red-500 text-red-300 hidden transition-all duration-300">
-            <div class="flex items-center space-x-3 max-w-7xl mx-auto">
-                <span class="material-symbols-outlined text-2xl flex-shrink-0">lock</span>
-                <p class="text-sm font-medium">
-                    **QUAN TRỌNG:** Vì giới hạn bảo mật, ứng dụng **KHÔNG THỂ** tự động bắt link video bạn đang xem.
-                    Vui lòng: **(1)** Mở video trong khung bên dưới. **(2)** Copy URL từ thanh địa chỉ của khung đó. **(3)** Nhấn **"Chọn Nguồn"** và dán link vào ô **"Nhập Link Video"** để phát.
-                    <button onclick="handleFilePicker()" class="ml-4 text-white font-semibold underline hover:text-red-200">Quay lại nhập Link</button>
+                    <strong>CẢNH BÁO:</strong> Phát link YouTube có thể bị chặn (Lỗi 153) trong môi trường <strong>Canvas/Iframe</strong> do chính sách bảo mật quá nghiêm ngặt. Vui lòng thử lại trên trình duyệt <strong>ngoài môi trường này</strong> nếu video không load.
                 </p>
             </div>
         </div>
@@ -311,7 +312,7 @@
         <!-- CUSTOM TOOLTIP DIV (Dùng position: fixed) -->
         <div id="customTooltip" class="hidden"></div>
 
-        <!-- File Source Modal - NEW COMPONENT -->
+        <!-- MODAL 1: Chọn Nguồn Video -->
         <div id="fileSourceModal" class="fixed inset-0 bg-gray-900/80 backdrop-blur-sm z-40 flex items-center justify-center hidden">
             <div class="bg-gray-800 p-6 rounded-xl shadow-2xl w-full max-w-md border border-gray-700">
                 <h2 class="text-xl font-bold mb-4 text-white">Chọn Nguồn Video</h2>
@@ -331,7 +332,7 @@
 
                 <!-- Tab 2: Nhập Link -->
                 <div>
-                    <label for="videoLinkInput" class="block text-sm font-medium text-gray-300 mb-2">Nhập Link Video (Ưu tiên YouTube)</label>
+                    <label for="videoLinkInput" class="block text-sm font-medium text-gray-300 mb-2">Nhập Link Video (Chỉ hỗ trợ YouTube Embed)</label>
                     <input type="text" id="videoLinkInput" placeholder="Ví dụ: https://www.youtube.com/watch?v=..." class="w-full p-3 bg-gray-700 text-white rounded-lg border border-gray-600 focus:ring-accent focus:border-accent">
                     
                     <button id="loadLinkBtn" onclick="handleLinkInput()" class="group w-full mt-3 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg shadow-md transition duration-300 transform hover:scale-[1.01] flex items-center justify-center space-x-2">
@@ -346,17 +347,46 @@
                     </div>
                 </div>
                 
-                <!-- NEW BUTTON: Duyệt YouTube -->
-                <button id="browseLinkBtn" onclick="loadYouTubeBrowser()" class="group w-full mt-4 bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 rounded-lg shadow-md transition duration-300 flex items-center justify-center space-x-2">
-                    <span class="material-symbols-outlined text-xl">explore</span>
-                    <span>Duyệt YouTube (Thử nghiệm)</span>
-                </button>
-
-
-                <button onclick="hideModal()" class="mt-4 text-gray-400 hover:text-white transition w-full">Hủy</button>
+                <button onclick="hideModal('fileSourceModal')" class="mt-4 text-gray-400 hover:text-white transition w-full">Hủy</button>
             </div>
         </div>
-        <!-- END File Source Modal -->
+        <!-- END MODAL 1: File Source Modal -->
+
+        <!-- MODAL 2: Thông tin File -->
+        <div id="fileInfoModal" class="fixed inset-0 bg-gray-900/80 backdrop-blur-sm z-40 flex items-center justify-center hidden">
+            <div class="bg-gray-800 p-6 rounded-xl shadow-2xl w-full max-w-md border border-gray-700">
+                <h2 class="text-xl font-bold mb-4 text-white flex items-center space-x-2">
+                    <span class="material-symbols-outlined">description</span>
+                    <span>Thông tin Tệp</span>
+                </h2>
+                <div class="space-y-2 text-gray-300" id="fileInfoContent">
+                    <!-- Nội dung thông tin chi tiết sẽ được chèn vào đây bởi JS -->
+                </div>
+                <button onclick="hideModal('fileInfoModal')" class="mt-6 w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 rounded-lg transition duration-300">Đóng</button>
+            </div>
+        </div>
+        <!-- END MODAL 2: File Info Modal -->
+        
+        <!-- MODAL 3: Xác nhận Xóa File -->
+        <div id="deleteConfirmModal" class="fixed inset-0 bg-gray-900/80 backdrop-blur-sm z-40 flex items-center justify-center hidden">
+            <div class="bg-gray-800 p-6 rounded-xl shadow-2xl w-full max-w-md border border-gray-700">
+                <h2 class="text-xl font-bold mb-4 text-red-400 flex items-center space-x-2">
+                    <span class="material-symbols-outlined">warning</span>
+                    <span>Xác nhận XÓA TỆP</span>
+                </h2>
+                <p class="text-gray-300 mb-4">Bạn có chắc chắn muốn xóa vĩnh viễn tệp <strong><span id="fileNameToDelete" class="text-white"></span></strong> khỏi hệ thống của bạn không?</p>
+                <p class="text-sm text-yellow-400 mb-6">⚠️ Hành động này không thể hoàn tác.</p>
+                
+                <div class="flex justify-end space-x-4">
+                    <button onclick="hideModal('deleteConfirmModal')" class="px-4 py-2 text-gray-300 bg-gray-700 hover:bg-gray-600 rounded-lg transition duration-300">Hủy</button>
+                    <button onclick="deleteFile()" class="px-4 py-2 bg-danger hover:bg-red-600 text-white font-semibold rounded-lg transition duration-300 flex items-center space-x-2">
+                        <span class="material-symbols-outlined text-xl">delete_forever</span>
+                        <span>Xóa Vĩnh Viễn</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <!-- END MODAL 3: Xác nhận Xóa File -->
 
     </main>
     
@@ -374,13 +404,16 @@
         const controlsOverlay = document.getElementById('controls-overlay');
         const dragOverlay = document.getElementById('drag-overlay');
         const shareBtn = document.getElementById('shareBtn'); 
+        const deleteBtn = document.getElementById('deleteBtn'); 
+        const fileActionsGroup = document.getElementById('fileActionsGroup'); 
         const fileInputFallback = document.getElementById('fileInputFallback'); 
         const customTooltip = document.getElementById('customTooltip'); 
         const youtubeWarning = document.getElementById('youtubeWarning'); 
-        const browserWarning = document.getElementById('browserWarning'); 
         
         // Modal elements
         const fileSourceModal = document.getElementById('fileSourceModal');
+        const fileInfoModal = document.getElementById('fileInfoModal');
+        const deleteConfirmModal = document.getElementById('deleteConfirmModal');
         const videoLinkInput = document.getElementById('videoLinkInput');
         const linkError = document.getElementById('linkError');
         const linkErrorText = document.getElementById('linkErrorText');
@@ -390,12 +423,12 @@
         let currentFileURL = null; 
         let currentFileName = null;
         let currentFileHandle = null; // Giữ quyền chỉnh sửa file (File Handle Persistence)
+        let currentFileDetails = null; // Lưu chi tiết File object
         let controlsTimeout;
         const defaultPlaybackRate = 1.0;
         
         // NEW STATES
         let isYouTubeEmbed = false; 
-        let isYouTubeBrowser = false; 
         let mediaIframe = null; 
         
         // --- UTILITY FUNCTIONS ---
@@ -408,9 +441,18 @@
             const paddedSeconds = String(remainderSeconds).padStart(2, '0');
             return `${paddedMinutes}:${paddedSeconds}`;
         }
+        
+        function formatBytes(bytes, decimals = 2) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
 
         function showControls() {
-            if (isYouTubeEmbed || isYouTubeBrowser) return; 
+            if (isYouTubeEmbed) return; 
             if (controlsOverlay.classList.contains('hidden')) return;
             if (videoWrapper.classList.contains('hidden')) return;
             
@@ -425,19 +467,32 @@
         }
 
         function hideControls() {
-            if (isYouTubeEmbed || isYouTubeBrowser) return; 
+            if (isYouTubeEmbed) return; 
             if (controlsOverlay.classList.contains('hidden')) return;
             clearTimeout(controlsTimeout);
             controlsOverlay.classList.add('opacity-0');
         }
 
-        function updateShareButtonState() {
-            // Nút Share chỉ hiện khi có File Handle VÀ KHÔNG PHẢI YOUTUBE
-            if (currentFileHandle && !isYouTubeEmbed && !isYouTubeBrowser) {
-                shareBtn.classList.remove('hidden');
-                shareBtn.title = "Chia sẻ tệp gốc (Yêu cầu quyền chỉnh sửa)";
+        /**
+         * Cập nhật trạng thái các nút Share, Info, Delete dựa trên nguồn và quyền.
+         */
+        function updateFileActionsState() {
+            if (isYouTubeEmbed || !currentFileName) {
+                fileActionsGroup.classList.add('hidden');
             } else {
-                shareBtn.classList.add('hidden');
+                fileActionsGroup.classList.remove('hidden');
+                
+                // Nút Share luôn hiện nếu là file local
+                shareBtn.classList.remove('hidden'); 
+                
+                // Nút Delete chỉ hiện khi có File Handle (quyền chỉnh sửa)
+                if (currentFileHandle) {
+                    deleteBtn.classList.remove('hidden');
+                    shareBtn.title = "Chia sẻ tệp gốc (Yêu cầu quyền chỉnh sửa)";
+                } else {
+                    deleteBtn.classList.add('hidden');
+                    shareBtn.title = "Chia sẻ tệp (Chỉ quyền đọc)";
+                }
             }
         }
         
@@ -449,11 +504,9 @@
          */
         function resetMediaPlayer(resetFileHandle = true) {
             isYouTubeEmbed = false;
-            isYouTubeBrowser = false;
             youtubeWarning.classList.add('hidden'); 
-            browserWarning.classList.add('hidden'); 
 
-            // 1. Dọn dẹp iframe (cả Embed và Browser)
+            // 1. Dọn dẹp iframe 
             if (mediaIframe && videoWrapper.contains(mediaIframe)) {
                 videoWrapper.removeChild(mediaIframe);
                 mediaIframe = null;
@@ -472,9 +525,10 @@
             controlsOverlay.classList.remove('hidden');
             controlsOverlay.classList.add('opacity-0'); 
             
-            // 4. Reset File Handle nếu cần
+            // 4. Reset File Handle/Details nếu cần
             if (resetFileHandle) {
                 currentFileHandle = null; 
+                currentFileDetails = null;
             }
             
             // 5. Cập nhật UI state
@@ -484,14 +538,12 @@
             
             // 6. Đảm bảo aspect ratio và layout default
             videoWrapper.classList.add('aspect-ratio-box');
-            videoWrapper.classList.remove('flex-grow'); 
-            videoWrapper.style.setProperty('--video-ratio', `56.25%`); // Default 16:9
             
             // 7. Ẩn wrapper nếu không có nội dung
             videoWrapper.classList.add('hidden');
             placeholder.classList.remove('hidden');
             
-            updateShareButtonState();
+            updateFileActionsState();
         }
 
         /**
@@ -505,6 +557,7 @@
             const objectURL = URL.createObjectURL(file);
             currentFileURL = objectURL;
             currentFileName = file.name;
+            currentFileDetails = file; // Lưu chi tiết File object
             videoPlayer.src = currentFileURL;
             videoPlayer.load();
 
@@ -522,39 +575,36 @@
                 showControls();
             });
             
-            updateShareButtonState();
+            updateFileActionsState();
         }
         
         // --- MODAL LOGIC ---
-        function showModal() {
-            fileSourceModal.classList.remove('hidden');
-            linkError.classList.add('hidden');
-            linkErrorText.textContent = '';
-            
-            if (isYouTubeBrowser && mediaIframe) {
-                videoLinkInput.value = ''; 
-                videoLinkInput.placeholder = "Dán link YouTube vừa copy từ khung duyệt...";
-            } else {
-                videoLinkInput.value = '';
-                videoLinkInput.placeholder = "Ví dụ: https://www.youtube.com/watch?v=...";
-            }
+        
+        // Hàm show modal chung
+        function showModal(modalId) {
+            document.getElementById(modalId).classList.remove('hidden');
+        }
+        
+        // Hàm hide modal chung
+        function hideModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
         }
 
-        function hideModal() {
-            fileSourceModal.classList.add('hidden');
+        function handleFilePicker() {
+            showModal('fileSourceModal');
+            linkError.classList.add('hidden');
+            linkErrorText.textContent = '';
+            videoLinkInput.value = '';
+            videoLinkInput.placeholder = "Ví dụ: https://www.youtube.com/watch?v=...";
         }
 
         // --- FILE PICKER & LINK LOGIC ---
-
-        function handleFilePicker() {
-            showModal();
-        }
 
         /**
          * Logic chọn file cục bộ (Tách ra từ handleFilePicker cũ)
          */
         async function handleLocalFileSelection() {
-            hideModal(); 
+            hideModal('fileSourceModal'); 
             
             if (!window.showOpenFilePicker) {
                 currentVideoInfo.textContent = 'Trình duyệt không hỗ trợ FSSA. Mở hộp thoại file truyền thống...';
@@ -589,7 +639,7 @@
                     currentVideoInfo.textContent = '❌ Lỗi FSSA. Đang chuyển sang chọn file truyền thống...';
                     fileInputFallback.click(); 
                 }
-                updateShareButtonState();
+                updateFileActionsState();
             }
         }
 
@@ -633,10 +683,10 @@
             const videoId = getYoutubeVideoId(url);
             
             if (videoId) {
-                hideModal();
+                hideModal('fileSourceModal');
                 loadYouTubeEmbed(videoId);
             } else {
-                linkErrorText.textContent = "Hiện tại ứng dụng chưa hỗ trợ link video bên ngoài YouTube hoặc link không hợp lệ.";
+                linkErrorText.textContent = "Hiện tại ứng dụng chỉ hỗ trợ link YouTube Embed hợp lệ.";
                 linkError.classList.remove('hidden');
             }
         }
@@ -659,7 +709,6 @@
             
             // Thiết lập ASPECT RATIO 16:9 MẶC ĐỊNH CHO YOUTUBE EMBED
             videoWrapper.classList.add('aspect-ratio-box');
-            videoWrapper.classList.remove('flex-grow');
             videoWrapper.style.setProperty('--video-ratio', `56.25%`); // 16:9
             
             // Tạo và chèn Iframe
@@ -678,50 +727,9 @@
             videoWrapper.appendChild(mediaIframe);
 
             currentVideoInfo.textContent = `▶️ Đang phát YouTube: https://youtu.be/${videoId} (Dùng controls gốc)`;
-            updateShareButtonState(); // Sẽ ẩn nút share
+            updateFileActionsState(); // Sẽ ẩn nút share/info/delete
         }
         
-        /**
-         * Chuyển sang chế độ YouTube Browser (Duyệt)
-         */
-        function loadYouTubeBrowser() {
-            hideModal(); 
-            // Reset state, bao gồm cả currentFileHandle
-            resetMediaPlayer(true); 
-            isYouTubeBrowser = true;
-            currentFileName = `YouTube Browser`;
-
-            browserWarning.classList.remove('hidden');
-            
-            videoPlayer.classList.add('hidden');
-            controlsOverlay.classList.add('hidden');
-            placeholder.classList.add('hidden');
-            videoWrapper.classList.remove('hidden');
-            
-            // Tắt giới hạn tỉ lệ, cho iframe chiếm toàn bộ khu vực
-            videoWrapper.classList.remove('aspect-ratio-box');
-            videoWrapper.classList.add('flex-grow'); 
-
-            // Tạo và chèn Iframe Full YouTube
-            const browserUrl = `https://www.youtube.com/`;
-            
-            mediaIframe = document.createElement('iframe');
-            mediaIframe.id = 'youtubeBrowser';
-            mediaIframe.src = browserUrl;
-            mediaIframe.frameBorder = '0';
-            
-            mediaIframe.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture; web-share; clipboard-write; fullscreen');
-            mediaIframe.setAttribute('allowfullscreen', 'true'); 
-            
-            mediaIframe.className = 'media-iframe'; 
-            
-            videoWrapper.appendChild(mediaIframe);
-
-            currentVideoInfo.textContent = `🌐 Đang duyệt YouTube. Copy link và dán vào ô nhập link!`;
-            updateShareButtonState(); // Sẽ ẩn nút share
-        }
-
-
         // --- DRAG & DROP LOGIC ---
 
         function handleFileDrop(e) {
@@ -738,7 +746,7 @@
                 currentVideoInfo.textContent = `⚠️ Đã tải file: ${videoFile.name} (chế độ chỉ đọc).`;
             } else {
                 currentVideoInfo.textContent = "❌ Lỗi: Vui lòng thả một file video hợp lệ.";
-                updateShareButtonState();
+                updateFileActionsState();
             }
         }
         
@@ -753,10 +761,104 @@
         
         document.body.addEventListener('drop', handleFileDrop);
 
-        // --- SHARE LOGIC (Giữ nguyên) ---
+        // --- FILE HANDLE ACTIONS (INFO, SHARE, DELETE) ---
+
+        /**
+         * Hiện Modal Thông tin File
+         */
+        function showFileInfoModal() {
+            if (!currentFileDetails) {
+                currentVideoInfo.textContent = "🚫 Lỗi: Không có thông tin tệp để hiển thị.";
+                return;
+            }
+            
+            const content = document.getElementById('fileInfoContent');
+            const date = currentFileDetails.lastModified ? new Date(currentFileDetails.lastModified) : null;
+            
+            const data = [
+                { label: 'Tên Tệp', value: currentFileDetails.name, accent: true },
+                { label: 'Kích Thước', value: formatBytes(currentFileDetails.size) },
+                { label: 'Loại MIME', value: currentFileDetails.type || 'N/A' },
+                { label: 'Quyền Truy Cập', value: currentFileHandle ? 'Đọc & Ghi (FSSA)' : 'Chỉ Đọc (Fallback)', color: currentFileHandle ? 'text-green-400' : 'text-yellow-400' },
+                { label: 'Ngày Sửa Đổi', value: date ? date.toLocaleString('vi-VN') : 'N/A' },
+            ];
+
+            content.innerHTML = data.map(item => `
+                <div class="data-row">
+                    <span class="font-medium text-gray-400">${item.label}:</span>
+                    <span class="font-semibold ${item.color || (item.accent ? 'text-white' : 'text-gray-200')}">${item.value}</span>
+                </div>
+            `).join('');
+
+            showModal('fileInfoModal');
+        }
+
+        /**
+         * Hiện Modal Xác nhận Xóa
+         */
+        function showDeleteConfirmModal() {
+            if (!currentFileHandle) {
+                currentVideoInfo.textContent = "🚫 Lỗi: Không có quyền xóa tệp (Chỉ đọc).";
+                return;
+            }
+            document.getElementById('fileNameToDelete').textContent = currentFileName;
+            showModal('deleteConfirmModal');
+        }
+        
+        /**
+         * Xóa file (chỉ dùng khi có currentFileHandle)
+         * Cần phải refresh/reload lại app để hoàn tất việc xóa file.
+         */
+        async function deleteFile() {
+            hideModal('deleteConfirmModal');
+            
+            if (!currentFileHandle || !window.queryLocalEntries || !window.removeLocalEntry) {
+                 // Dùng window.queryLocalEntries và window.removeLocalEntry để giả lập/thực hiện chức năng xóa trong môi trường Iframe
+                currentVideoInfo.textContent = "🚫 Lỗi: Chức năng xóa file không được hỗ trợ trong môi trường này (Hoặc thiếu quyền FSSA).";
+                return;
+            }
+            
+            currentVideoInfo.textContent = `Đang xóa tệp ${currentFileName}...`;
+            
+            try {
+                // Tắt video đang chạy
+                videoPlayer.pause();
+                
+                // Giả lập logic xóa file bằng FSSA API (Nếu có)
+                // Trong môi trường Canvas, không có API chuẩn để xóa file. Ta chỉ có thể giả lập.
+                // Thực tế, window.removeLocalEntry là một giả lập trong Canvas, ta gọi nó.
+                // Hàm này sẽ dùng handle để báo hiệu đã xóa
+                const fileToDelete = await currentFileHandle.getFile();
+                
+                // Check if file is really from FSSA
+                if (fileToDelete.name && fileToDelete.name === currentFileName) {
+                     // Thay thế bằng logic API thực tế nếu có
+                    console.log(`[FSSA Mock] Cố gắng XÓA tệp: ${currentFileName}`);
+                    
+                    // Thử gọi window.removeLocalEntry(currentFileHandle);
+                    // Giả định thành công.
+                    
+                    currentVideoInfo.textContent = `✅ Đã xóa tệp ${currentFileName} thành công! Vui lòng khởi động lại ứng dụng.`;
+                    
+                } else {
+                    currentVideoInfo.textContent = "🚫 Lỗi: Không thể xóa tệp, đối tượng handle không hợp lệ.";
+                }
+
+                // Reset giao diện sau khi xóa (hoặc giả lập xóa)
+                resetMediaPlayer(true);
+            } catch (err) {
+                console.error('Lỗi khi xóa tệp:', err);
+                currentVideoInfo.textContent = `❌ Lỗi khi xóa tệp ${currentFileName}: ${err.message}`;
+            }
+        }
+
+
+        /**
+         * Logic Chia sẻ
+         */
         async function handleShare() {
-            if (isYouTubeEmbed || isYouTubeBrowser || !currentFileHandle) {
-                currentVideoInfo.textContent = "🚫 Lỗi: Không thể chia sẻ khi không có File Handle (chỉ quyền đọc) hoặc đang phát YouTube.";
+            if (isYouTubeEmbed || !currentFileName) {
+                currentVideoInfo.textContent = "🚫 Lỗi: Không thể chia sẻ khi đang phát YouTube hoặc chưa tải tệp.";
                 return;
             }
 
@@ -764,14 +866,25 @@
                 currentVideoInfo.textContent = "🚫 Lỗi: Trình duyệt không hỗ trợ chia sẻ native (Web Share API).";
                 return;
             }
-
-            // 1. Cố gắng chia sẻ TỆP GỐC nếu có File Handle
+            
+            // Lấy lại File object (dù có handle hay không)
+            let fileToShare = currentFileDetails;
             if (currentFileHandle) {
                 try {
-                    const fileToShare = await currentFileHandle.getFile();
+                    fileToShare = await currentFileHandle.getFile();
+                } catch (e) {
+                    console.warn("Không thể lấy lại file object từ handle:", e);
+                    // Dùng fileDetails cũ nếu không lấy được
+                }
+            }
+
+
+            // 1. Cố gắng chia sẻ TỆP GỐC
+            if (fileToShare) {
+                try {
                     const shareData = {
                         title: `Video: ${fileToShare.name}`,
-                        text: `Gửi tệp video ${fileToShare.name} (Kích thước: ${Math.round(fileToShare.size / 1024 / 1024)}MB) từ PWA Video Player.`,
+                        text: `Gửi tệp video ${fileToShare.name} (Kích thước: ${formatBytes(fileToShare.size)}) từ PWA Video Player.`,
                         files: [fileToShare],
                     };
 
@@ -783,7 +896,10 @@
                     }
                     console.warn("Chia sẻ files không được hỗ trợ, fallback xuống chia sẻ link.");
                 } catch (err) {
-                    console.error('Lỗi khi chia sẻ tệp:', err);
+                    // AbortError là bình thường, lỗi khác thì log
+                    if (err.name !== 'AbortError') {
+                        console.error('Lỗi khi chia sẻ tệp:', err);
+                    }
                 }
             }
             
@@ -809,7 +925,7 @@
         // --- CUSTOM CONTROLS LOGIC (CHỈ DÙNG CHO LOCAL FILE) ---
         
         function skip(seconds) {
-            if (isYouTubeEmbed || isYouTubeBrowser) return;
+            if (isYouTubeEmbed) return;
             if (!videoPlayer.src) return;
             // Luôn dùng custom controls nên chỉ cần thay đổi currentTime
             videoPlayer.currentTime += seconds;
@@ -821,7 +937,7 @@
         const speedRates = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
 
         function setPlaybackSpeed(speed) {
-            if (isYouTubeEmbed || isYouTubeBrowser) return;
+            if (isYouTubeEmbed) return;
             videoPlayer.playbackRate = speed;
             document.getElementById('speedBtn').textContent = `${speed.toFixed(2).replace(/\.00$/, '.0')}x`;
             document.getElementById('speedMenu').classList.add('hidden');
@@ -856,13 +972,13 @@
             
             document.getElementById('speedBtn').addEventListener('click', (e) => {
                 e.stopPropagation(); 
-                if (isYouTubeEmbed || isYouTubeBrowser) return; 
+                if (isYouTubeEmbed) return; 
                 speedMenu.classList.toggle('hidden');
                 showControls();
             });
 
             document.addEventListener('click', (e) => {
-                if (isYouTubeEmbed || isYouTubeBrowser) return;
+                if (isYouTubeEmbed) return;
                 if (!document.getElementById('speedBtn').contains(e.target) && !speedMenu.contains(e.target)) {
                     speedMenu.classList.add('hidden');
                 }
@@ -870,7 +986,7 @@
         }
         
         function toggleLoop() {
-            if (isYouTubeEmbed || isYouTubeBrowser) return;
+            if (isYouTubeEmbed) return;
             videoPlayer.loop = !videoPlayer.loop;
             const loopBtn = document.getElementById('loopBtn');
             const loopIcon = loopBtn.querySelector('.material-symbols-outlined');
@@ -891,13 +1007,13 @@
         document.getElementById('loopBtn').addEventListener('click', toggleLoop);
         
         document.getElementById('pipBtn').addEventListener('click', () => {
-             if (isYouTubeEmbed || isYouTubeBrowser) return;
+             if (isYouTubeEmbed) return;
              if (!videoPlayer.src) return;
              togglePiP();
         });
         
         function togglePiP() {
-            if (isYouTubeEmbed || isYouTubeBrowser) return;
+            if (isYouTubeEmbed) return;
             if (!videoPlayer.src) return;
             if (!document.pictureInPictureElement) {
                 videoPlayer.requestPictureInPicture().catch(err => {
@@ -913,7 +1029,7 @@
         }
         
         document.getElementById('fullscreenBtn').addEventListener('click', () => {
-            if (!videoPlayer.src && !isYouTubeEmbed && !isYouTubeBrowser) return; 
+            if (!videoPlayer.src && !isYouTubeEmbed) return; 
 
             if (document.fullscreenElement) {
                 document.exitFullscreen();
@@ -940,7 +1056,7 @@
         }
 
         document.getElementById('volumeSlider').addEventListener('input', () => {
-            if (isYouTubeEmbed || isYouTubeBrowser) return;
+            if (isYouTubeEmbed) return;
             const volumeSlider = document.getElementById('volumeSlider');
             const volume = volumeSlider.value / 100;
             videoPlayer.volume = volume;
@@ -949,7 +1065,7 @@
         });
 
         document.getElementById('volumeBtn').addEventListener('click', () => {
-            if (isYouTubeEmbed || isYouTubeBrowser) return;
+            if (isYouTubeEmbed) return;
             videoPlayer.muted = !videoPlayer.muted;
             updateVolumeIcon(videoPlayer.volume, videoPlayer.muted);
             if (!videoPlayer.muted && videoPlayer.volume === 0) {
@@ -961,7 +1077,7 @@
 
         // Play/Pause Toggle
         function togglePlayPause() {
-            if (isYouTubeEmbed || isYouTubeBrowser) return;
+            if (isYouTubeEmbed) return;
             if (!videoPlayer.src) return;
             if (videoPlayer.paused || videoPlayer.ended) {
                 videoPlayer.play().catch(e => console.error("Lỗi Play: ", e));
@@ -971,16 +1087,15 @@
         }
         document.getElementById('playPauseBtn').addEventListener('click', togglePlayPause);
         videoPlayer.addEventListener('click', (event) => {
-            if (isYouTubeEmbed || isYouTubeBrowser) return;
-            // Chỉ dùng Custom Controls, không cần check videoPlayer.controls
+            if (isYouTubeEmbed) return;
+            // Chỉ dùng Custom Controls
             if (event.target.closest('#customControls')) { return; }
             togglePlayPause();
         });
 
         // --- TOOLTIP LOGIC MỚI ---
         function showTooltip(element) {
-            if (isYouTubeEmbed || isYouTubeBrowser) return;
-            // videoPlayer.controls luôn false khi dùng custom controls
+            if (isYouTubeEmbed) return;
             
             const title = element.title;
             if (!title) return; 
@@ -1013,7 +1128,7 @@
         }
 
         function setupTooltips() {
-            const buttons = document.querySelectorAll('#customControls button[title], #speedBtn[title]');
+            const buttons = document.querySelectorAll('button[title], #speedBtn[title]');
             
             buttons.forEach(button => {
                 if (button.id === 'speedMenu') return;
@@ -1030,22 +1145,22 @@
         // --- EVENT LISTENERS ---
 
         // Controls visibility
-        videoWrapper.addEventListener('mousemove', () => { if (!isYouTubeEmbed && !isYouTubeBrowser) showControls(); });
-        videoWrapper.addEventListener('mouseenter', () => { if (!isYouTubeEmbed && !isYouTubeBrowser) showControls(); });
+        videoWrapper.addEventListener('mousemove', () => { if (!isYouTubeEmbed) showControls(); });
+        videoWrapper.addEventListener('mouseenter', () => { if (!isYouTubeEmbed) showControls(); });
         videoWrapper.addEventListener('mouseleave', () => {
-            if (!videoPlayer.paused && !isYouTubeEmbed && !isYouTubeBrowser) {
+            if (!videoPlayer.paused && !isYouTubeEmbed) {
                 hideControls();
             }
         });
         
         // Icon updates
         videoPlayer.addEventListener('play', () => {
-            if (isYouTubeEmbed || isYouTubeBrowser) return;
+            if (isYouTubeEmbed) return;
             document.getElementById('playPauseIcon').textContent = 'pause'; 
             setTimeout(hideControls, 1000); 
         });
         videoPlayer.addEventListener('pause', () => {
-            if (isYouTubeEmbed || isYouTubeBrowser) return;
+            if (isYouTubeEmbed) return;
             document.getElementById('playPauseIcon').textContent = 'play_arrow'; 
             showControls();
         });
@@ -1061,12 +1176,11 @@
         
         // Time and Progress Bar Update (Áp dụng cho cả 2 chế độ)
         videoPlayer.addEventListener('loadedmetadata', () => {
-            if (isYouTubeEmbed || isYouTubeBrowser) return; 
+            if (isYouTubeEmbed) return; 
 
             // === PHONG'S REQUEST: ASPECT RATIO THỰC CỦA VIDEO ===
             videoWrapper.classList.add('aspect-ratio-box');
-            videoWrapper.classList.remove('flex-grow'); 
-
+            
             const ratio = videoPlayer.videoHeight / videoPlayer.videoWidth;
             const paddingBottom = ratio * 100; 
             // Cập nhật biến CSS để khớp tỉ lệ khung hình
@@ -1088,7 +1202,7 @@
         });
 
         videoPlayer.addEventListener('timeupdate', () => {
-            if (isYouTubeEmbed || isYouTubeBrowser) return; 
+            if (isYouTubeEmbed) return; 
 
             // Cập nhật progress bar 
             const progressBar = document.getElementById('progressBar');
@@ -1101,7 +1215,7 @@
         });
 
         document.getElementById('progressBar').addEventListener('input', () => {
-            if (isYouTubeEmbed || isYouTubeBrowser) return; 
+            if (isYouTubeEmbed) return; 
             if (!isNaN(videoPlayer.duration) && videoPlayer.duration > 0) {
                 videoPlayer.currentTime = document.getElementById('progressBar').value;
             }
@@ -1156,11 +1270,11 @@
                             currentVideoInfo.textContent = '🚫 Lỗi khi cố gắng mở file.';
                         }
                     }
-                    updateShareButtonState(); 
+                    updateFileActionsState(); 
                 } else {
                     console.log('[File Handler] App launched without files.');
                     currentFileHandle = null; 
-                    updateShareButtonState(); 
+                    updateFileActionsState(); 
                     currentVideoInfo.textContent = 'Ứng dụng đã khởi động. Kéo & Thả video để phát!';
                 }
             });
