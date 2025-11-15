@@ -231,77 +231,79 @@
                 
                 <!-- Iframes được chèn vào đây (sẽ dùng class media-iframe) -->
 
-<!-- Main Custom Controls Overlay - đã chỉnh sửa vị trí nút âm lượng và bỏ nút Cast -->
-<div id="controls-overlay" class="transition-opacity duration-300 opacity-0 pointer-events-none p-4">
-    <div id="customControls" class="w-full bg-gray-900/90 backdrop-blur-sm p-3 rounded-xl shadow-2xl border border-gray-700 flex flex-col pointer-events-auto">
-        
-        <!-- Seek Bar / Progress Bar -->
-        <input type="range" id="progressBar" value="0" min="0" max="100" class="w-full h-1 appearance-none cursor-pointer bg-accent/50 rounded-full">
+                <!-- Custom Controls Overlay (Chỉ dùng cho local file, bị ẩn khi dùng YouTube) -->
+                <div id="controls-overlay" class="transition-opacity duration-300 opacity-0 pointer-events-none p-4">
+                    <div id="customControls" class="w-full bg-gray-900/90 backdrop-blur-sm p-3 rounded-xl shadow-2xl border border-gray-700 flex flex-col pointer-events-auto">
+                        
+                        <!-- Seek Bar / Progress Bar -->
+                        <input type="range" id="progressBar" value="0" min="0" max="100" class="w-full h-1 appearance-none cursor-pointer bg-accent/50 rounded-full">
 
-        <!-- Control Buttons Row -->
-        <div class="flex items-center justify-between mt-2">
-            
-            <!-- Left Controls: Play/Skip/Time -->
-            <div class="flex items-center space-x-3">
-                <!-- Skip Backward 10s -->
-                <button id="skipBackwardBtn" title="Tua lùi 10s" class="p-2 text-gray-300 hover:text-white rounded-full transition duration-150 transform hover:scale-110 group">
-                    <span class="material-symbols-outlined text-2xl">replay_10</span>
-                </button>
-                
-                <!-- Play/Pause Button -->
-                <button id="playPauseBtn" title="Play/Pause" class="p-2 text-white bg-accent hover:bg-blue-600 rounded-full transition duration-150 transform hover:scale-110 group">
-                    <span id="playPauseIcon" class="material-symbols-outlined text-3xl">play_arrow</span>
-                </button>
-                
-                <!-- Skip Forward 10s -->
-                <button id="skipForwardBtn" title="Tua tiến 10s" class="p-2 text-gray-300 hover:text-white rounded-full transition duration-150 transform hover:scale-110 group">
-                    <span class="material-symbols-outlined text-2xl">forward_10</span>
-                </button>
+                        <!-- Control Buttons Row -->
+                        <div class="flex items-center justify-between mt-2">
+                            
+                            <!-- Left Controls: Play/Skip/Time -->
+                            <div class="flex items-center space-x-3">
+                                
+                                <!-- Skip Backward 10s -->
+                                <button id="skipBackwardBtn" title="Tua lùi 10s" class="p-2 text-gray-300 hover:text-white rounded-full transition duration-150 transform hover:scale-110 group">
+                                    <span class="material-symbols-outlined text-2xl">replay_10</span>
+                                </button>
+                                
+                                <!-- Play/Pause Button -->
+                                <button id="playPauseBtn" title="Play/Pause" class="p-2 text-white bg-accent hover:bg-blue-600 rounded-full transition duration-150 transform hover:scale-110 group">
+                                    <span id="playPauseIcon" class="material-symbols-outlined text-3xl">play_arrow</span>
+                                </button>
+                                
+                                <!-- Skip Forward 10s -->
+                                <button id="skipForwardBtn" title="Tua tiến 10s" class="p-2 text-gray-300 hover:text-white rounded-full transition duration-150 transform hover:scale-110 group">
+                                    <span class="material-symbols-outlined text-2xl">forward_10</span>
+                                </button>
 
-                <!-- Time Display -->
-                <div id="timeDisplay" class="text-sm font-mono text-gray-300 hidden md:block">00:00 / 00:00</div>
-            </div>
+                                <!-- Time Display -->
+                                <div id="timeDisplay" class="text-sm font-mono text-gray-300 hidden md:block">00:00 / 00:00</div>
+                            </div>
 
-            <!-- Right Controls: Volume, Speed, Loop, PiP, Fullscreen -->
-            <div class="flex items-center space-x-3">
-                <!-- Volume Control - DI CHUYỂN RA TRƯỚC -->
-                <div class="flex items-center space-x-2 group relative">
-                    <!-- Volume Slider (không cần tooltip) -->
-                    <input type="range" id="volumeSlider" value="100" min="0" max="100" title="Âm lượng" class="w-20 h-1 appearance-none cursor-pointer bg-gray-700 rounded-full opacity-90">
-                    <!-- Volume Button -->
-                    <button id="volumeBtn" title="Tắt/Mở tiếng" class="p-2 text-gray-300 hover:text-white rounded-full transition duration-150 group">
-                        <span id="volumeIcon" class="material-symbols-outlined text-xl">volume_up</span>
-                    </button>
-                </div>
+                            <!-- Right Controls: Speed, Loop, Cast, PiP, Volume, Fullscreen -->
+                            <div class="flex items-center space-x-3">
+                                
+                                <!-- Speed Control -->
+                                <div class="relative group">
+                                    <button id="speedBtn" title="Tốc độ phát" class="p-2 text-gray-300 hover:text-white rounded-lg text-sm font-semibold transition duration-150 bg-gray-800/50">
+                                        1.0x
+                                    </button>
+                                    <!-- Speed Menu -->
+                                    <div id="speedMenu" class="absolute bottom-full mb-2 right-0 bg-gray-900 border border-gray-700 rounded-lg shadow-xl overflow-hidden hidden w-20">
+                                    </div>
+                                </div>
+                                
+                                <!-- Loop Button -->
+                                <button id="loopBtn" title="Lặp lại" class="p-2 text-gray-500 hover:text-accent rounded-full transition duration-150 group">
+                                    <span class="material-symbols-outlined text-xl">repeat</span>
+                                </button>
 
-                <!-- Speed Control -->
-                <div class="relative group">
-                    <button id="speedBtn" title="Tốc độ phát" class="p-2 text-gray-300 hover:text-white rounded-lg text-sm font-semibold transition duration-150 bg-gray-800/50">
-                        1.0x
-                    </button>
-                    <!-- Speed Menu -->
-                    <div id="speedMenu" class="absolute bottom-full mb-2 right-0 bg-gray-900 border border-gray-700 rounded-lg shadow-xl overflow-hidden hidden w-20">
+                                <!-- Picture-in-Picture Button (PiP) -->
+                                <button id="pipBtn" title="Hình trong hình (PiP)" class="p-2 text-gray-300 hover:text-white rounded-full transition duration-150 group">
+                                    <span class="material-symbols-outlined text-xl">picture_in_picture_alt</span>
+                                </button>
+                                
+                                <!-- Volume Control (Hiện Slider khi hover) -->
+                                <div class="flex items-center space-x-2 group relative">
+                                    <!-- Volume Slider (không cần tooltip) -->
+                                    <input type="range" id="volumeSlider" value="100" min="0" max="100" title="Âm lượng" class="w-20 h-1 appearance-none cursor-pointer bg-gray-700 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 hidden md:block">
+                                    <!-- Volume Button -->
+                                    <button id="volumeBtn" title="Tắt/Mở tiếng" class="p-2 text-gray-300 hover:text-white rounded-full transition duration-150 group">
+                                        <span id="volumeIcon" class="material-symbols-outlined text-xl">volume_up</span>
+                                    </button>
+                                </div>
+
+                                <!-- Fullscreen Button -->
+                                <button id="fullscreenBtn" title="Toàn màn hình" class="p-2 text-gray-300 hover:text-white rounded-full transition duration-150 group">
+                                    <span id="fullscreenIcon" class="material-symbols-outlined text-xl">fullscreen</span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                
-                <!-- Loop Button -->
-                <button id="loopBtn" title="Lặp lại" class="p-2 text-gray-500 hover:text-accent rounded-full transition duration-150 group">
-                    <span class="material-symbols-outlined text-xl">repeat</span>
-                </button>
-
-                <!-- Picture-in-Picture Button (PiP) -->
-                <button id="pipBtn" title="Hình trong hình (PiP)" class="p-2 text-gray-300 hover:text-white rounded-full transition duration-150 group">
-                    <span class="material-symbols-outlined text-xl">picture_in_picture_alt</span>
-                </button>
-                
-                <!-- Fullscreen Button -->
-                <button id="fullscreenBtn" title="Toàn màn hình" class="p-2 text-gray-300 hover:text-white rounded-full transition duration-150 group">
-                    <span id="fullscreenIcon" class="material-symbols-outlined text-xl">fullscreen</span>
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
                 <!-- End Custom Controls Overlay -->
             </div>
             <!-- End Video Wrapper -->
@@ -409,7 +411,7 @@
         const customTooltip = document.getElementById('customTooltip'); 
         const youtubeWarning = document.getElementById('youtubeWarning'); 
         const pipBtn = document.getElementById('pipBtn'); 
-
+     
         // Modal elements
         const fileSourceModal = document.getElementById('fileSourceModal');
         const fileInfoModal = document.getElementById('fileInfoModal');
