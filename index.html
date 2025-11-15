@@ -280,6 +280,11 @@
                                 <button id="loopBtn" title="Lặp lại" class="p-2 text-gray-500 hover:text-accent rounded-full transition duration-150 group">
                                     <span class="material-symbols-outlined text-xl">repeat</span>
                                 </button>
+                                
+                                <!-- Cast to OS Media Controls Button (Truyền tới TV) -->
+                                <button id="castBtn" title="Truyền tới TV (Kích hoạt Menu Điều khiển OS)" class="p-2 text-gray-300 hover:text-white rounded-full transition duration-150 group">
+                                    <span class="material-symbols-outlined text-xl">cast</span>
+                                </button>
 
                                 <!-- Picture-in-Picture Button (PiP) -->
                                 <button id="pipBtn" title="Hình trong hình (PiP)" class="p-2 text-gray-300 hover:text-white rounded-full transition duration-150 group">
@@ -411,7 +416,8 @@
         const customTooltip = document.getElementById('customTooltip'); 
         const youtubeWarning = document.getElementById('youtubeWarning'); 
         const pipBtn = document.getElementById('pipBtn'); 
-     
+        const castBtn = document.getElementById('castBtn'); // Nút Cast
+        
         // Modal elements
         const fileSourceModal = document.getElementById('fileSourceModal');
         const fileInfoModal = document.getElementById('fileInfoModal');
