@@ -8,8 +8,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     
-    <!-- Tải Material Symbols (Outline, Fill, Weight) -->
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <!-- Tải Material Symbols (Outline, Fill, Weight) - FIXED: Dùng display=swap để đảm bảo font load ổn định hơn -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" />
     
     <!-- === PWA MANIFEST & FILE HANDLING === -->
     <meta name="theme-color" content="#1c1b1f"> 
@@ -92,10 +92,17 @@
         
         /* --- MATERIAL SYMBOLS STYLING --- */
         .material-symbols-outlined {
+            /* Đảm bảo trình duyệt biết dùng font này khi load */
+            font-family: 'Material Symbols Outlined';
             font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
             transition: font-variation-settings 0.3s ease; 
             line-height: 1; 
             display: inline-block;
+            /* Phải có để hiển thị icon thay vì chữ */
+            font-feature-settings: 'liga'; 
+            -webkit-font-feature-settings: 'liga';
+            text-rendering: optimizeLegibility;
+            -webkit-font-smoothing: antialiased;
         }
         
         .group:hover .material-symbols-outlined,
@@ -256,7 +263,7 @@
                                 <div id="timeDisplay" class="text-sm font-mono text-gray-300 hidden md:block">00:00 / 00:00</div>
                             </div>
 
-                            <!-- Right Controls: Speed, Loop, PiP, Volume, Fullscreen -->
+                            <!-- Right Controls: Speed, Loop, Cast, PiP, Volume, Fullscreen -->
                             <div class="flex items-center space-x-3">
                                 
                                 <!-- Speed Control -->
@@ -273,8 +280,13 @@
                                 <button id="loopBtn" title="Lặp lại" class="p-2 text-gray-500 hover:text-accent rounded-full transition duration-150 group">
                                     <span class="material-symbols-outlined text-xl">repeat</span>
                                 </button>
+                                
+                                <!-- Cast to OS Media Controls Button (Truyền tới TV) -->
+                                <button id="castBtn" title="Truyền tới TV (Kích hoạt Menu Điều khiển OS)" class="p-2 text-gray-300 hover:text-white rounded-full transition duration-150 group">
+                                    <span class="material-symbols-outlined text-xl">cast</span>
+                                </button>
 
-                                <!-- Picture-in-Picture Button (PiP đã được đưa về đây) -->
+                                <!-- Picture-in-Picture Button (PiP) -->
                                 <button id="pipBtn" title="Hình trong hình (PiP)" class="p-2 text-gray-300 hover:text-white rounded-full transition duration-150 group">
                                     <span class="material-symbols-outlined text-xl">picture_in_picture_alt</span>
                                 </button>
@@ -403,7 +415,8 @@
         const fileInputFallback = document.getElementById('fileInputFallback'); 
         const customTooltip = document.getElementById('customTooltip'); 
         const youtubeWarning = document.getElementById('youtubeWarning'); 
-        const pipBtn = document.getElementById('pipBtn'); // Lấy lại PiP button
+        const pipBtn = document.getElementById('pipBtn'); 
+        const castBtn = document.getElementById('castBtn'); // Nút Cast
         
         // Modal elements
         const fileSourceModal = document.getElementById('fileSourceModal');
@@ -541,6 +554,16 @@
             // 7. Ẩn wrapper nếu không có nội dung
             videoWrapper.classList.add('hidden');
             placeholder.classList.remove('hidden');
+            
+            // Quan trọng: Xóa Media Session Handlers
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.metadata = null;
+                // Chỉ xóa handlers, không xóa nút
+                navigator.mediaSession.setActionHandler('play', null);
+                navigator.mediaSession.setActionHandler('pause', null);
+                navigator.mediaSession.setActionHandler('seekbackward', null);
+                navigator.mediaSession.setActionHandler('seekforward', null);
+            }
             
             updateFileActionsState();
         }
@@ -981,13 +1004,13 @@
         }
         document.getElementById('loopBtn').addEventListener('click', toggleLoop);
         
-        // PiP Logic (Đã được đưa về Custom Controls)
+        // --- CHỨC NĂNG PICTURE-IN-PICTURE (PIP) ---
         pipBtn.addEventListener('click', () => {
              if (isYouTubeEmbed) return;
              if (!videoPlayer.src) return;
              togglePiP();
         });
-        
+
         function togglePiP() {
             if (isYouTubeEmbed) return;
             if (!videoPlayer.src) return;
@@ -1004,6 +1027,33 @@
             showControls();
         }
         
+        /**
+         * Kích hoạt Media Session API để hiển thị Menu Điều khiển OS/TV (Chức năng Cast)
+         */
+        function enableOSMediaControls() {
+            if (isYouTubeEmbed) return;
+            if (!videoPlayer.src) {
+                currentVideoInfo.textContent = "🚫 Lỗi: Vui lòng tải video trước khi truyền.";
+                return;
+            }
+
+            // 1. Đảm bảo video đang chạy để kích hoạt Media Session
+            if (videoPlayer.paused) {
+                videoPlayer.play().catch(e => console.error("Lỗi Play khi Cast: ", e));
+            }
+
+            // 2. Thiết lập/Cập nhật Media Session (đảm bảo OS nhận được metadata)
+            // LƯU Ý: setupMediaSession() được gọi lại ở đây để đảm bảo OS nhận được thông báo mới nhất.
+            setupMediaSession();
+            
+            // 3. Cập nhật UI
+            currentVideoInfo.innerHTML = '📺 Đã **kích hoạt Menu Điều khiển OS/TV** (Media Session API). Bạn có thể điều khiển trên thanh tác vụ/thông báo.';
+        }
+        
+        // --- GÁN LẠI CHỨC NĂNG CHO NÚT CAST ---
+        castBtn.addEventListener('click', enableOSMediaControls);
+        // --------------------------------------
+
         document.getElementById('fullscreenBtn').addEventListener('click', () => {
             if (!videoPlayer.src && !isYouTubeEmbed) return; 
 
@@ -1068,6 +1118,50 @@
             if (event.target.closest('#customControls')) { return; }
             togglePlayPause();
         });
+        
+        /**
+         * Thiết lập Media Session API (Kích hoạt điều khiển OS)
+         * Hàm này được gọi khi video load và mỗi khi trạng thái Play/Pause thay đổi.
+         */
+        function setupMediaSession() {
+            if (!('mediaSession' in navigator)) return;
+            
+            // Chỉ thiết lập khi có video local
+            if (videoPlayer.src && !isYouTubeEmbed) {
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: currentFileName || 'Video Cục Bộ',
+                    artist: 'Trình Phát PWA',
+                    album: 'Đang phát video cá nhân', 
+                });
+
+                // Set Action Handlers (Quan trọng để kích hoạt menu điều khiển OS)
+                navigator.mediaSession.setActionHandler('play', () => { 
+                    videoPlayer.play(); 
+                    currentVideoInfo.textContent = '🎵 Đã tiếp tục phát (Qua điều khiển OS).';
+                });
+                navigator.mediaSession.setActionHandler('pause', () => { 
+                    videoPlayer.pause(); 
+                    currentVideoInfo.textContent = '⏸ Đã tạm dừng (Qua điều khiển OS).';
+                });
+                navigator.mediaSession.setActionHandler('seekbackward', (details) => {
+                    const seekTime = details.seekOffset || 10;
+                    videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - seekTime);
+                    currentVideoInfo.textContent = `⏪ Tua lại ${seekTime}s (Qua điều khiển OS).`;
+                });
+                navigator.mediaSession.setActionHandler('seekforward', (details) => {
+                    const seekTime = details.seekOffset || 10;
+                    videoPlayer.currentTime = Math.min(videoPlayer.duration, videoPlayer.currentTime + seekTime);
+                    currentVideoInfo.textContent = `⏩ Tua tới ${seekTime}s (Qua điều khiển OS).`;
+                });
+            } else {
+                // Xóa Handlers khi không có video local/đang là YouTube
+                navigator.mediaSession.metadata = null;
+                navigator.mediaSession.setActionHandler('play', null);
+                navigator.mediaSession.setActionHandler('pause', null);
+                navigator.mediaSession.setActionHandler('seekbackward', null);
+                navigator.mediaSession.setActionHandler('seekforward', null);
+            }
+        }
 
         // --- TOOLTIP LOGIC MỚI ---
         function showTooltip(element) {
@@ -1131,11 +1225,13 @@
         videoPlayer.addEventListener('play', () => {
             if (isYouTubeEmbed) return;
             document.getElementById('playPauseIcon').textContent = 'pause'; 
+            setupMediaSession(); // Cập nhật trạng thái Play cho Media Session
             setTimeout(hideControls, 1000); 
         });
         videoPlayer.addEventListener('pause', () => {
             if (isYouTubeEmbed) return;
             document.getElementById('playPauseIcon').textContent = 'play_arrow'; 
+            setupMediaSession(); // Cập nhật trạng thái Pause cho Media Session
             showControls();
         });
         
@@ -1173,6 +1269,9 @@
             
             document.getElementById('volumeSlider').value = videoPlayer.volume * 100;
             updateVolumeIcon(videoPlayer.volume, videoPlayer.muted);
+            
+            // NEW: Setup Media Session (Quan trọng!)
+            setupMediaSession();
         });
 
         videoPlayer.addEventListener('timeupdate', () => {
@@ -1209,6 +1308,15 @@
             } else {
                 pipBtn.classList.remove('hidden');
             }
+            
+            // PiP/Cast UI change on state
+            videoPlayer.addEventListener('enterpictureinpicture', () => {
+                currentVideoInfo.textContent = '🖼️ Đã bật PiP. Video đang chạy trong cửa sổ nổi.';
+            });
+
+            videoPlayer.addEventListener('leavepictureinpicture', () => {
+                currentVideoInfo.textContent = `✅ Đã thoát PiP. Đang phát: ${currentFileName}`;
+            });
         }
         
         window.onload = function() {
